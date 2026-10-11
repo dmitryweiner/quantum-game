@@ -52,6 +52,7 @@ export const CHAPTER_3: LevelDef[] = [
         'поэтому атом разлетелся во все стороны. Так работает принцип неопределённости Гейзенберга.',
     },
     effects: ['uncertainty', 'superposition', 'collapse'],
+    classicalIntro: true,
     map: [
       '#####################',
       '#a................TT#',

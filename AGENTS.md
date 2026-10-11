@@ -23,6 +23,14 @@ is about **how to work** here.
   `--host` is on, so a phone on the same Wi‑Fi can open it too.
 - TypeScript is pinned to `~6.0` because `typescript-eslint` does not support 7 yet.
 
+## Production build checks
+
+- `npm run build && npx vite preview --port 4199` serves the build under
+  `/quantum-game/` exactly like GitHub Pages.
+- The service worker (`public/sw.js`) is registered only in production builds,
+  so check offline behaviour there: load, reload once, stop the server, reload.
+  Bump `CACHE` in `sw.js` if its caching strategy changes.
+
 ## Visual checks — always include phone sizes
 
 The game is mobile-first. After any change to layout, HUD, panels or

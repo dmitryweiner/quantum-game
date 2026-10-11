@@ -68,6 +68,12 @@ export interface LevelDef {
   focus?: boolean;
   /** Show only this many central cells (the rest of a big room is off-screen). */
   view?: { cols: number; rows: number };
+  /**
+   * Chapter opener: the level first runs with classical rules (nothing
+   * spreads, nothing tunnels), so the player sees it cannot be won, then
+   * switches quantum physics on (PLAN.md §1.4, «Classical mode»).
+   */
+  classicalIntro?: true;
   /** How far the observer can see, cells (default 4.5; 8 with `focus`). */
   gazeRange?: number;
   /** Unstable cores: radians per second of their swing towards decay (default π/10). */

@@ -1,6 +1,6 @@
 {
   "name": "quantum-game",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "description": "A web puzzle game about the weirdness of the quantum world",
   "license": "GPL-3.0-only",

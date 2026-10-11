@@ -350,6 +350,31 @@ describe('chapter 5 playtest', () => {
   });
 });
 
+describe('classical mode', () => {
+  for (const level of LEVELS.filter((l) => l.classicalIntro)) {
+    it(`${level.id}: cannot be won with everyday physics`, () => {
+      const door = doorOf(level);
+      let wins = 0;
+      for (let seed = 0; seed < 20; seed++) {
+        const sim = new LevelSim(level, mulberry32(seed), false, true);
+        while (sim.status === 'playing' && sim.time < 30) {
+          // Blink at the target, and glance at the object now and then.
+          const b = sim.bodies[0]!.def;
+          const look =
+            sim.time % 1.02 >= 1
+              ? door
+              : sim.time % 2.1 < 0.03
+                ? { x: b.col + 0.5, y: b.row + 0.5 }
+                : null;
+          sim.step(1 / 60, { x: 0, y: 0 }, look);
+        }
+        if (sim.status === 'won') wins++;
+      }
+      expect(wins).toBe(0);
+    });
+  }
+});
+
 describe('chapter 1 playtest', () => {
   for (const level of LEVELS.filter((l) => l.chapter === 1)) {
     const door = doorOf(level);

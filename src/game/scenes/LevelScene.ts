@@ -15,7 +15,8 @@ import { inspectCell } from '../ui/inspect';
 import { Controls } from '../input/Controls';
 import type { Gaze } from '../input/types';
 import { GazeCone } from '../systems/GazeCone';
-import { LevelSim, SLITS, type LossReason } from '../systems/LevelSim';
+import { LevelSim, SLITS, type LossReason, type SimEvent } from '../systems/LevelSim';
+import { play } from '../audio';
 import { ui } from '../ui';
 import { newBombPanelState, type BombPanelState } from '../ui/BombPanel';
 import { newChshState, type ChshState } from '../ui/ChshPanel';
@@ -25,6 +26,11 @@ export interface LevelSceneData {
   levelId?: string;
   /** Skip the intro panel (used by "Try again"). */
   skipIntro?: boolean;
+  /**
+   * Classical-mode opener (levels with `classicalIntro`): undefined = start
+   * classical when entering the level; false = quantum (after switching).
+   */
+  classical?: boolean;
   /** Open the level menu on top (used at boot). */
   showMenu?: boolean;
 }
@@ -68,6 +74,8 @@ export class LevelScene extends Phaser.Scene {
   private uiLayer!: Phaser.GameObjects.Layer;
   private uiCamera!: Phaser.Cameras.Scene2D.Camera;
   private running = false;
+  /** Playing the classical-mode opener of this level. */
+  private classical = false;
   private gazeAngle = 0;
   private lastGazeScreen: { x: number; y: number } | null = null;
 
@@ -82,7 +90,13 @@ export class LevelScene extends Phaser.Scene {
     const rows = this.level.map.length;
     const cols = this.level.map[0]?.length ?? 0;
     const transposed = portrait ? cols > rows * 1.2 : rows > cols * 1.2;
-    this.sim = new LevelSim(this.level, mulberry32((Math.random() * 2 ** 32) >>> 0), transposed);
+    this.classical = Boolean(this.level.classicalIntro) && data.classical !== false;
+    this.sim = new LevelSim(
+      this.level,
+      mulberry32((Math.random() * 2 ** 32) >>> 0),
+      transposed,
+      this.classical,
+    );
     this.running = false;
     this.lastGazeScreen = null;
     this.quantum = [];
@@ -159,6 +173,12 @@ export class LevelScene extends Phaser.Scene {
     });
     this.input.on('pointerup', this.onTap, this);
 
+    overlay.setClassicalBanner(this.classical ? () => this.switchToQuantum() : null);
+    if (this.classical) {
+      // Give the player a moment to try (and fail) before offering the switch.
+      this.time.delayedCall(6000, () => ui().revealQuantumSwitch());
+    }
+
     if (data.showMenu) this.openMenu();
     else if (data.skipIntro || this.level === SANDBOX) this.begin();
     else
@@ -167,7 +187,13 @@ export class LevelScene extends Phaser.Scene {
         isTouchDevice(),
         () => this.begin(),
         () => this.openMenu(),
+        this.classical,
       );
+  }
+
+  private switchToQuantum(): void {
+    ui().closeScreen();
+    this.scene.restart({ levelId: this.level.id, classical: false });
   }
 
   /** Starts (or resumes) play; the CHSH level is played in its panel. */
@@ -219,6 +245,49 @@ export class LevelScene extends Phaser.Scene {
       duration: 450,
       onComplete: () => ring.destroy(),
     });
+  }
+
+  private onSimEvent(e: SimEvent, wasEntangled: boolean): void {
+    switch (e.type) {
+      case 'collapsed':
+        this.quantum[e.body]?.flash(e.site);
+        play('collapse');
+        break;
+      case 'qubit-changed':
+        this.qubits.find((q) => (q.def.side ?? 0) === e.side)?.flash();
+        play(wasEntangled && !this.sim.pair?.entangled ? 'snap' : 'flash');
+        break;
+      case 'flash':
+        this.flashAt(e.col, e.row);
+        play('flash');
+        break;
+      case 'particle-passed':
+        this.flights.set(e.id, { seen: e.seen });
+        if (e.seen) {
+          this.flashAt(e.seen.col, e.seen.row, COLORS.gaze);
+          play('flash');
+        }
+        break;
+      case 'particle-hit':
+        this.onParticleHit(e.col, e.row, e.lamp);
+        play(e.lamp ? 'lamp' : 'hit');
+        break;
+      case 'detector':
+        this.flashAt(e.col, e.row, e.inZone ? COLORS.good : COLORS.bad);
+        play('tick');
+        break;
+      case 'lights-out':
+        play('snap');
+        break;
+      case 'won':
+        this.onWon();
+        break;
+      case 'lost':
+        this.onLost(e.reason);
+        break;
+      default:
+        break;
+    }
   }
 
   /** A dot where a particle landed; the lamp flashes when hit. */
@@ -309,20 +378,8 @@ export class LevelScene extends Phaser.Scene {
       const dt = Math.min(deltaMs, 100) / 1000;
       const gaze = this.inspecting ? null : this.gazeTarget(state.gaze);
       const events = this.sim.step(dt, state.move, gaze);
-      for (const e of events) {
-        if (e.type === 'collapsed') this.quantum[e.body]?.flash(e.site);
-        else if (e.type === 'flash') this.flashAt(e.col, e.row);
-        else if (e.type === 'particle-passed') {
-          this.flights.set(e.id, { seen: e.seen });
-          if (e.seen) this.flashAt(e.seen.col, e.seen.row, COLORS.gaze);
-        } else if (e.type === 'particle-hit') this.onParticleHit(e.col, e.row, e.lamp);
-        else if (e.type === 'detector')
-          this.flashAt(e.col, e.row, e.inZone ? COLORS.good : COLORS.bad);
-        else if (e.type === 'qubit-changed')
-          this.qubits.find((q) => (q.def.side ?? 0) === e.side)?.flash();
-        else if (e.type === 'won') this.onWon();
-        else if (e.type === 'lost') this.onLost(e.reason);
-      }
+      const wasEntangled = this.sim.pair?.entangled ?? false;
+      for (const e of events) this.onSimEvent(e, wasEntangled);
       ui().setTimer(this.status());
     }
     this.renderSim(time);
@@ -400,6 +457,7 @@ export class LevelScene extends Phaser.Scene {
 
   private onWon(): void {
     this.running = false;
+    play('win');
     if (this.level !== SANDBOX) markCompleted(this.level.id);
     const next = nextLevel(this.level.id);
     // Let the player see the flash, or the CHSH result, before the panel.
@@ -415,6 +473,7 @@ export class LevelScene extends Phaser.Scene {
 
   private onLost(reason: LossReason): void {
     this.running = false;
+    play(reason === 'core' || reason === 'exploded' ? 'boom' : 'lose');
     ui().showLose(
       reason,
       () => this.restartLevel(true),
@@ -424,11 +483,12 @@ export class LevelScene extends Phaser.Scene {
 
   private restartLevel(skipIntro: boolean): void {
     ui().closeScreen();
-    this.scene.restart({ levelId: this.level.id, skipIntro });
+    this.scene.restart({ levelId: this.level.id, skipIntro, classical: this.classical });
   }
 
   private openMenu(): void {
     this.running = false;
+    ui().setClassicalBanner(null);
     ui().showMenu((id) => this.scene.restart({ levelId: id }));
   }
 

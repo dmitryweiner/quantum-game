@@ -5,6 +5,7 @@ import type { LossReason } from '../systems/LevelSim';
 import { EFFECTS, type EffectId } from '../../strings/effects';
 import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
+import { play, setSoundEnabled, soundEnabled } from '../audio';
 import { h, type Child } from './dom';
 import { bombPanel, type BombPanelState } from './BombPanel';
 import { chshPanel, type ChshState } from './ChshPanel';
@@ -33,6 +34,8 @@ export class Ui {
   private readonly focusBlurry: HTMLElement;
   private readonly focusSharp: HTMLElement;
   private glassesMode: Basis | null = null;
+  private banner: HTMLElement | null = null;
+  private onSwitch: (() => void) | null = null;
   /** Name of the open panel, so background updates only redraw their own panel. */
   private screenName = '';
   /** Re-renders the open panel, e.g. after the language changes. */
@@ -50,9 +53,11 @@ export class Ui {
     hudResized: () => {},
   };
 
-  /** Bottom edge of the HUD in CSS pixels (0 when hidden). */
+  /** Bottom edge of the HUD (and the classical-mode banner under it), CSS pixels. */
   hudBottom(): number {
-    return this.hud.hidden ? 0 : this.hud.getBoundingClientRect().bottom;
+    const hud = this.hud.hidden ? 0 : this.hud.getBoundingClientRect().bottom;
+    const banner = this.banner ? this.banner.getBoundingClientRect().bottom : 0;
+    return Math.max(hud, banner);
   }
 
   constructor() {
@@ -143,9 +148,14 @@ export class Ui {
       this.setGlasses(this.glassesMode);
       if (!this.focusBox.hidden) this.setFocus(Number(this.focusInput.value));
       this.setInspectMode(this.inspectButton.classList.contains('active'));
+      if (this.banner) this.renderBanner(this.banner.dataset.button === 'true');
       this.reopen?.();
     });
     document.body.append(this.root);
+    // A soft click for every button press.
+    this.root.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) play('click');
+    });
   }
 
   /** Shows the glasses switch with its mode, or hides it (null). */
@@ -183,6 +193,44 @@ export class Ui {
   setTimer(value: number | string | null): void {
     this.hudTimer.textContent =
       value === null ? '' : typeof value === 'number' ? String(Math.ceil(value)) : value;
+  }
+
+  /** The "classical mode" notice under the HUD, or none. */
+  setClassicalBanner(onSwitch: (() => void) | null): void {
+    const had = this.banner !== null;
+    this.banner?.remove();
+    this.banner = null;
+    this.onSwitch = onSwitch;
+    if (!onSwitch) {
+      if (had) this.handlers.hudResized();
+      return;
+    }
+    this.banner = h('div', { class: 'classical-banner' });
+    this.root.append(this.banner);
+    this.renderBanner(false);
+  }
+
+  /** Shows the "switch quantum on" button on the banner. */
+  revealQuantumSwitch(): void {
+    if (this.banner) this.renderBanner(true);
+  }
+
+  private renderBanner(withButton: boolean): void {
+    const b = this.banner;
+    if (!b) return;
+    b.replaceChildren(h('span', {}, T().classical.banner));
+    if (withButton) {
+      b.append(
+        h(
+          'button',
+          { class: 'btn primary', onclick: () => this.onSwitch?.() },
+          T().classical.switch,
+        ),
+      );
+    }
+    b.dataset.button = String(withButton);
+    // The map moves down to make room for the banner.
+    this.handlers.hudResized();
   }
 
   /** Shows the focus slider at `value` (0 blurry … 1 sharp), or hides it. */
@@ -292,21 +340,58 @@ export class Ui {
   showMenu(onPick: (id: string) => void): void {
     const done = completedLevels();
     const chapters = [...new Set(LEVELS.map((l) => l.chapter))];
+    const pick = (id: string) => () => {
+      this.closeScreen();
+      onPick(id);
+    };
+    const next = LEVELS.find((l) => !done.has(l.id));
+    const sound = soundEnabled();
     const content: Child[] = [
       h('h1', {}, `👁️ ${T().title}`),
       h('p', { class: 'muted' }, T().tagline),
+      h(
+        'div',
+        { class: 'choices' },
+        next &&
+          h(
+            'button',
+            { class: 'btn primary', onclick: pick(next.id) },
+            done.size > 0 ? T().continueTo(tr(next.title)) : T().play,
+          ),
+        h(
+          'button',
+          {
+            class: 'btn',
+            'aria-pressed': String(sound),
+            onclick: () => {
+              setSoundEnabled(!sound);
+              this.showMenu(onPick);
+            },
+          },
+          sound ? T().soundOn : T().soundOff,
+        ),
+      ),
     ];
     for (const ch of chapters) {
-      content.push(h('h2', {}, `${T().chapter(ch)} · ${T().chapterTitles[ch] ?? ''}`));
+      const levels = LEVELS.filter((l) => l.chapter === ch);
+      const passed = levels.filter((l) => done.has(l.id)).length;
+      content.push(
+        h(
+          'h2',
+          {},
+          `${T().chapter(ch)} · ${T().chapterTitles[ch] ?? ''} `,
+          h('span', { class: 'chapter-count' }, `${passed}/${levels.length}`),
+        ),
+      );
       const list = h('ul', { class: 'level-list' });
-      LEVELS.filter((l) => l.chapter === ch).forEach((l, i) => {
+      levels.forEach((l, i) => {
         list.append(
           h(
             'li',
             {},
             h(
               'button',
-              { class: 'btn', onclick: () => (this.closeScreen(), onPick(l.id)) },
+              { class: 'btn', onclick: pick(l.id) },
               h('span', { class: 'num' }, `${ch}.${i + 1}`),
               tr(l.title),
               done.has(l.id) && h('span', { class: 'done' }, '✓'),
@@ -321,23 +406,43 @@ export class Ui {
       h(
         'ul',
         { class: 'level-list' },
-        h(
-          'li',
-          {},
-          h(
-            'button',
-            { class: 'btn', onclick: () => (this.closeScreen(), onPick('sandbox')) },
-            '🧪',
-            T().sandboxNote,
-          ),
-        ),
+        h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
+      ),
+      h(
+        'details',
+        { class: 'about' },
+        h('summary', {}, T().aboutTitle),
+        ...T().about.map((t) => h('p', {}, t)),
       ),
       h('p', { class: 'muted' }, `build ${__BUILD__}`),
     );
     this.open(content, [], () => this.showMenu(onPick));
   }
 
-  showIntro(level: LevelDef, touch: boolean, onStart: () => void, onMenu: () => void): void {
+  showIntro(
+    level: LevelDef,
+    touch: boolean,
+    onStart: () => void,
+    onMenu: () => void,
+    classical = false,
+  ): void {
+    if (classical) {
+      this.open(
+        [
+          h('p', { class: 'muted' }, T().chapter(level.chapter)),
+          h('h1', {}, `${T().classical.title}: ${tr(level.title)}`),
+          h('p', {}, tr(level.goal)),
+          h('p', { class: 'hint' }, T().classical.intro),
+          h('p', { class: 'muted' }, touch ? T().controlsTouch : T().controlsDesktop),
+        ],
+        [
+          { label: T().start, primary: true, run: onStart },
+          { label: T().menu, cancel: true, run: onMenu },
+        ],
+        () => this.showIntro(level, touch, onStart, onMenu, classical),
+      );
+      return;
+    }
     this.open(
       [
         h('p', { class: 'muted' }, level.chapter > 0 ? T().chapter(level.chapter) : ''),
@@ -355,7 +460,7 @@ export class Ui {
         { label: T().start, primary: true, run: onStart },
         { label: T().menu, cancel: true, run: onMenu },
       ],
-      () => this.showIntro(level, touch, onStart, onMenu),
+      () => this.showIntro(level, touch, onStart, onMenu, classical),
     );
   }
 

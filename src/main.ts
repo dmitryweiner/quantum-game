@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
+import { installAudioUnlock } from './game/audio';
 import { viewportSize, DPR } from './game/display';
 import { BootScene } from './game/scenes/BootScene';
 import { LevelScene } from './game/scenes/LevelScene';
+
+installAudioUnlock();
 
 const size = viewportSize();
 
@@ -29,3 +32,12 @@ window.addEventListener('orientationchange', onResize);
 
 // Lets automated checks step frames by hand (`__game.step(t, dt)`) in dev builds.
 if (import.meta.env.DEV) Object.assign(window, { __game: game });
+
+// Offline play once installed (production only: a service worker would cache dev files).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // No offline mode; the game still works online.
+    });
+  });
+}

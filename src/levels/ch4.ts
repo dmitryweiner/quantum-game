@@ -30,6 +30,7 @@ export const CHAPTER_4: LevelDef[] = [
         'Сквозь поле в две клетки почти ничего бы не прошло — туннелирование очень круто спадает с толщиной.',
     },
     effects: ['tunnelling', 'superposition', 'collapse'],
+    classicalIntro: true,
     map: ['###########', '#c...%...D#', '#=========#', '#....@....#', '###########'],
     winCondition: { type: 'catch-at-target' },
     timeLimit: 40,

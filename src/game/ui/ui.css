@@ -408,3 +408,39 @@
   width: 100%;
   accent-color: var(--accent);
 }
+
+.chapter-count {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.about summary {
+  cursor: pointer;
+  color: var(--accent);
+  margin-top: 16px;
+  min-height: 32px;
+}
+
+/* Classical-mode notice, just under the HUD. */
+.classical-banner {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--hud-h, 56px) + 6px);
+  width: min(480px, calc(100vw - 24px));
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(70, 50, 20, 0.85);
+  border: 1px solid var(--warn);
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: auto;
+}

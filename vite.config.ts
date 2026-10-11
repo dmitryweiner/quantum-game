@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig(({ command }) => ({
-  // GitHub Pages serves the site from /quantum-game/
-  base: command === 'build' ? '/quantum-game/' : '/',
+export default defineConfig(({ command, isPreview }) => ({
+  // GitHub Pages serves the site from /quantum-game/ (and `vite preview` mimics it).
+  base: command === 'build' || isPreview ? '/quantum-game/' : '/',
   build: {
     // Phaser alone is ~1.2 MB minified; it is cached separately from game code.
     chunkSizeWarningLimit: 2000,

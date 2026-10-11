@@ -34,6 +34,7 @@ export const CHAPTER_1: LevelDef[] = [
         'Твой взгляд заставил его выбрать одну клетку: случайно, но чем ярче был призрак, тем вероятнее.',
     },
     effects: ['superposition', 'collapse', 'born-rule'],
+    classicalIntro: true,
     map: ['#########', '#c.....D#', '#=======#', '#.......#', '#...@...#', '#########'],
     winCondition: { type: 'catch-at-target' },
   },

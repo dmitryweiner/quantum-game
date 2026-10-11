@@ -182,6 +182,8 @@ export class LevelSim {
     private readonly rng: Rng,
     /** Play the level with rows and columns swapped (portrait screens). */
     transposed = false,
+    /** Classical rules: quantum objects sit still at their start cell (no spreading, no tunnelling). */
+    readonly classical = false,
   ) {
     this.map = parseMap(transposed ? transposeMap(level.map) : level.map);
     const s = this.map.playerStart;
@@ -240,7 +242,7 @@ export class LevelSim {
           tileAt(this.map, c, lattice.row[i]!) === 'barrier' ? OBSERVERS.barrier * hop : 0,
         );
         const psi = new Superposition(lattice, lattice.siteAt(def.col, def.row), hop, potential);
-        if (def.spread) psi.setGaussian({ x: def.col, y: def.row }, def.spread);
+        if (def.spread && !classical) psi.setGaussian({ x: def.col, y: def.row }, def.spread);
         return {
           def,
           psi,
@@ -250,7 +252,8 @@ export class LevelSim {
   }
 
   get timeLeft(): number | null {
-    return this.level.timeLimit === undefined
+    // No clock in classical mode: there is nothing to run out of time for.
+    return this.level.timeLimit === undefined || this.classical
       ? null
       : Math.max(0, this.level.timeLimit - this.time);
   }
@@ -317,7 +320,7 @@ export class LevelSim {
 
     let won = false;
     this.bodies.forEach((body, index) => {
-      if (!this.trapped) body.psi.evolve(dt);
+      if (!this.trapped && !this.classical) body.psi.evolve(dt);
       const { lattice } = body.psi;
       for (let i = 0; i < lattice.size; i++) {
         body.seen[i] = this.sees(lattice.col[i]!, lattice.row[i]!);

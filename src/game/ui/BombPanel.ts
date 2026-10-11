@@ -13,6 +13,7 @@ import {
   type BombGame,
   type BoxState,
 } from '../systems/bombs';
+import { play } from '../audio';
 import { h } from './dom';
 
 /** Everything the panel remembers between redraws (e.g. a language switch). */
@@ -70,6 +71,10 @@ export function bombPanel(
   const act = (fn: () => void) => () => {
     if (state.done || game.state[state.selected] !== 'unknown') return;
     fn();
+    const r = game.last?.result;
+    if (r === 'boom') play('boom');
+    else if (r === 'dark' || r === 'bomb') play('lamp');
+    else play('tick');
     on.rerender();
     check();
   };

@@ -8,6 +8,10 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
+    files: ['public/sw.js'],
+    languageOptions: { globals: globals.serviceworker },
+  },
+  {
     languageOptions: { globals: globals.browser },
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',

@@ -11,7 +11,9 @@ const TURN_RATE = (150 * Math.PI) / 180;
  * Desktop scheme: WASD / arrows to walk, mouse to look, Space or the right
  * button to close the eyes. Holding Shift looks with the keyboard instead:
  * the eyes open where they last looked, ← and → turn the gaze smoothly (WASD
- * still walk), releasing Shift closes the eyes.
+ * still walk). Releasing Shift hands the gaze back to the mouse, but the
+ * keyboard angle stays until the mouse moves (or closes the eyes if the mouse
+ * is not over the game).
  */
 export class KeyboardMouse {
   private readonly keys: Record<KeyName, Phaser.Input.Keyboard.Key> | null;
@@ -21,6 +23,12 @@ export class KeyboardMouse {
   /** Direction of the keyboard look (Shift + arrows). */
   private keyAngle = -Math.PI / 2;
   private wasShift = false;
+  /**
+   * After Shift is released the gaze keeps the keyboard angle until the mouse
+   * actually moves (it must not snap back to wherever the cursor was).
+   */
+  private keepKeyAngle = false;
+  private mouseAtRelease = { x: 0, y: 0 };
 
   constructor(private readonly scene: Phaser.Scene) {
     const kb = scene.input.keyboard;
@@ -82,7 +90,12 @@ export class KeyboardMouse {
   gaze(dt: number, current: number): Gaze | null {
     const k = this.keys;
     const shift = this.shiftLook;
+    const mouse = this.scene.input.mousePointer;
     if (shift && !this.wasShift) this.keyAngle = current;
+    if (!shift && this.wasShift) {
+      this.keepKeyAngle = true;
+      this.mouseAtRelease = { x: mouse?.x ?? 0, y: mouse?.y ?? 0 };
+    }
     this.wasShift = shift;
     if (k?.space.isDown) return null;
     if (k && shift) {
@@ -90,9 +103,13 @@ export class KeyboardMouse {
       this.keyAngle += turn * TURN_RATE * dt;
       return { kind: 'angle', angle: this.keyAngle };
     }
-    const mouse = this.scene.input.mousePointer;
     if (!mouse || !this.mouseSeen || !this.mouseInside) return null;
     if (mouse.rightButtonDown()) return null;
+    if (this.keepKeyAngle) {
+      const moved = Math.hypot(mouse.x - this.mouseAtRelease.x, mouse.y - this.mouseAtRelease.y);
+      if (moved < 3) return { kind: 'angle', angle: this.keyAngle };
+      this.keepKeyAngle = false;
+    }
     return { kind: 'point', x: mouse.x, y: mouse.y };
   }
 }
