@@ -13,6 +13,7 @@ import { EntanglementThread, Qubit } from '../entities/Qubit';
 import { FlowerView, LampView } from '../entities/Extras';
 import { inspectCell } from '../ui/inspect';
 import { Controls } from '../input/Controls';
+import type { Gaze } from '../input/types';
 import { GazeCone } from '../systems/GazeCone';
 import { LevelSim, type LossReason } from '../systems/LevelSim';
 import { ui } from '../ui';
@@ -122,6 +123,7 @@ export class LevelScene extends Phaser.Scene {
       glasses: () => this.toggleGlasses(),
       focus: (v) => this.sim.setFocus(v),
       inspect: () => this.toggleInspect(),
+      hudResized: () => this.layout(),
     };
     this.input.keyboard?.on('keydown-Q', this.toggleGlasses, this);
     this.input.keyboard?.on('keydown-I', this.toggleInspect, this);
@@ -158,6 +160,7 @@ export class LevelScene extends Phaser.Scene {
   private toggleInspect(): void {
     if (ui().isScreenOpen) return;
     this.inspecting = !this.inspecting;
+    this.controls.touch.inspecting = this.inspecting;
     ui().setInspectMode(this.inspecting);
   }
 
@@ -225,20 +228,27 @@ export class LevelScene extends Phaser.Scene {
   }
 
   /**
-   * The gaze direction follows the finger or mouse, but walking does not
-   * turn it: the angle is only recomputed when the pointer itself moves.
+   * Turns the control gaze into a point to look at (cell units). A stick or
+   * Shift+arrows give a direction directly. The mouse gives a screen point,
+   * but walking does not turn the gaze: the angle is only recomputed when the
+   * mouse itself moves.
    */
-  private gazeTarget(screen: { x: number; y: number } | null): { x: number; y: number } | null {
-    if (!screen) {
+  private gazeTarget(gaze: Gaze | null): { x: number; y: number } | null {
+    if (!gaze) {
       this.lastGazeScreen = null;
       return null;
     }
     const p = this.sim.player;
-    const last = this.lastGazeScreen;
-    if (!last || Math.hypot(screen.x - last.x, screen.y - last.y) > 0.5) {
-      const w = this.cameras.main.getWorldPoint(screen.x, screen.y);
-      this.gazeAngle = Math.atan2(w.y / CELL - p.y, w.x / CELL - p.x);
-      this.lastGazeScreen = { ...screen };
+    if (gaze.kind === 'angle') {
+      this.gazeAngle = gaze.angle;
+      this.lastGazeScreen = null;
+    } else {
+      const last = this.lastGazeScreen;
+      if (!last || Math.hypot(gaze.x - last.x, gaze.y - last.y) > 0.5) {
+        const w = this.cameras.main.getWorldPoint(gaze.x, gaze.y);
+        this.gazeAngle = Math.atan2(w.y / CELL - p.y, w.x / CELL - p.x);
+        this.lastGazeScreen = { x: gaze.x, y: gaze.y };
+      }
     }
     return { x: p.x + Math.cos(this.gazeAngle), y: p.y + Math.sin(this.gazeAngle) };
   }
@@ -391,16 +401,23 @@ export class LevelScene extends Phaser.Scene {
 
   /** Fits the map into the screen, leaving room for the HUD and the thumbs. */
   private layout(): void {
+    if (!this.sim || !this.uiCamera) return;
     const { width, height } = this.scale;
     this.cameras.main.setSize(width, height);
     this.uiCamera.setSize(width, height);
 
-    const hudTop = px(60);
+    // Below the HUD (its height depends on how its buttons wrap).
+    const hudTop = px(ui().hudBottom() + 6);
     const portrait = height > width;
     // Portrait: map on top, thumbs below. Landscape: thumbs on the sides.
     const area = portrait
-      ? { x: 0, y: hudTop, w: width, h: height * 0.7 - hudTop }
-      : { x: width * 0.16, y: hudTop, w: width * 0.68, h: height - hudTop - px(8) };
+      ? { x: 0, y: hudTop, w: width, h: height - hudTop - px(this.level.focus ? 230 : 160) }
+      : {
+          x: width * 0.16,
+          y: hudTop,
+          w: width * 0.68,
+          h: height - hudTop - px(this.level.focus ? 80 : 8),
+        };
 
     const { cols, rows } = this.sim.map;
     const mapW = cols * CELL;

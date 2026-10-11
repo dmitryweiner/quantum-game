@@ -7,24 +7,33 @@ import { clampToRadius, joystickVector } from './joystick';
 const BASE_RADIUS = px(56);
 const KNOB_RADIUS = px(24);
 const DEAD_ZONE = px(6);
+/** The gaze stick only turns the look once the thumb moves this far. */
+const AIM_ZONE = px(14);
 const MARGIN = px(28);
 
+interface Stick {
+  id: number | null;
+  origin: Vec2;
+  thumb: Vec2;
+}
+
 /**
- * Two-thumb touch scheme (PLAN.md §4.3):
- * - a floating joystick that appears where the left thumb lands;
- * - the right thumb points the gaze; lifting it closes the eyes.
+ * Twin-stick touch scheme (PLAN.md §4.3): the left thumb walks, the right
+ * thumb looks. Pushing the right stick opens the eyes in that direction;
+ * lifting the thumb closes them. Both sticks float: they appear where the
+ * thumb lands in its half of the screen.
  *
- * Each role is bound to one pointer id, so both thumbs work independently.
+ * In 🔍 mode (`inspecting`) touches are left alone, so a tap can pick an object.
  */
 export class TouchControls {
-  private joystickId: number | null = null;
-  private gazeId: number | null = null;
-  private origin: Vec2 = { x: 0, y: 0 };
-  private thumb: Vec2 = { x: 0, y: 0 };
-  private gazePoint: Vec2 | null = null;
+  private readonly move: Stick = { id: null, origin: { x: 0, y: 0 }, thumb: { x: 0, y: 0 } };
+  private readonly look: Stick = { id: null, origin: { x: 0, y: 0 }, thumb: { x: 0, y: 0 } };
+  /** Last aimed direction; a fresh touch looks the same way until the thumb moves. */
+  private angle = -Math.PI / 2;
   private readonly gfx: Phaser.GameObjects.Graphics;
-  /** Becomes true on the first touch; desktop users never see the joystick. */
+  /** Becomes true on the first touch; desktop users never see the sticks. */
   used = false;
+  inspecting = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -46,68 +55,75 @@ export class TouchControls {
     });
   }
 
-  get move(): Vec2 {
-    if (this.joystickId === null) return { x: 0, y: 0 };
-    return joystickVector(
-      this.thumb.x - this.origin.x,
-      this.thumb.y - this.origin.y,
-      BASE_RADIUS,
-      DEAD_ZONE,
-    );
+  get moveVector(): Vec2 {
+    const s = this.move;
+    if (s.id === null) return { x: 0, y: 0 };
+    return joystickVector(s.thumb.x - s.origin.x, s.thumb.y - s.origin.y, BASE_RADIUS, DEAD_ZONE);
   }
 
-  get gaze(): Vec2 | null {
-    return this.gazePoint;
+  /** Gaze direction while the right thumb is down, else null (eyes closed). */
+  get gazeAngle(): number | null {
+    const s = this.look;
+    if (s.id === null) return null;
+    const dx = s.thumb.x - s.origin.x;
+    const dy = s.thumb.y - s.origin.y;
+    if (Math.hypot(dx, dy) > AIM_ZONE) this.angle = Math.atan2(dy, dx);
+    return this.angle;
   }
 
-  private idleOrigin(): Vec2 {
-    return { x: MARGIN + BASE_RADIUS, y: this.scene.scale.height - MARGIN - BASE_RADIUS };
+  private idle(right: boolean): Vec2 {
+    const { width, height } = this.scene.scale;
+    const y = height - MARGIN - BASE_RADIUS;
+    return { x: right ? width - MARGIN - BASE_RADIUS : MARGIN + BASE_RADIUS, y };
   }
 
   private onDown(pointer: Phaser.Input.Pointer): void {
     if (!pointer.wasTouch) return;
     this.used = true;
-    const leftHalf = pointer.x < this.scene.scale.width / 2;
-    if (leftHalf && this.joystickId === null) {
-      this.joystickId = pointer.id;
-      this.origin = { x: pointer.x, y: pointer.y };
-      this.thumb = { ...this.origin };
-    } else if (!leftHalf && this.gazeId === null) {
-      this.gazeId = pointer.id;
-      this.gazePoint = { x: pointer.x, y: pointer.y };
-    }
+    if (this.inspecting) return;
+    const stick = pointer.x < this.scene.scale.width / 2 ? this.move : this.look;
+    if (stick.id !== null) return;
+    stick.id = pointer.id;
+    stick.origin = { x: pointer.x, y: pointer.y };
+    stick.thumb = { ...stick.origin };
   }
 
   private onMove(pointer: Phaser.Input.Pointer): void {
-    if (pointer.id === this.joystickId) this.thumb = { x: pointer.x, y: pointer.y };
-    else if (pointer.id === this.gazeId) this.gazePoint = { x: pointer.x, y: pointer.y };
-  }
-
-  private onUp(pointer: Phaser.Input.Pointer): void {
-    if (pointer.id === this.joystickId) this.joystickId = null;
-    if (pointer.id === this.gazeId) {
-      this.gazeId = null;
-      this.gazePoint = null;
+    for (const s of [this.move, this.look]) {
+      if (pointer.id === s.id) s.thumb = { x: pointer.x, y: pointer.y };
     }
   }
 
-  /** Redraws the joystick; call once per frame. */
+  private onUp(pointer: Phaser.Input.Pointer): void {
+    for (const s of [this.move, this.look]) if (pointer.id === s.id) s.id = null;
+  }
+
+  /** Redraws both sticks; call once per frame. */
   draw(): void {
     const g = this.gfx;
     g.clear();
-    if (!this.used) return;
+    if (!this.used || this.inspecting) return;
+    this.drawStick(this.move, false, COLORS.joystickKnob);
+    this.drawStick(this.look, true, COLORS.gaze);
+  }
 
-    const active = this.joystickId !== null;
-    const origin = active ? this.origin : this.idleOrigin();
+  private drawStick(s: Stick, right: boolean, knobColour: number): void {
+    const g = this.gfx;
+    const active = s.id !== null;
+    const origin = active ? s.origin : this.idle(right);
     const knob = active
-      ? clampToRadius(this.thumb.x - origin.x, this.thumb.y - origin.y, BASE_RADIUS)
+      ? clampToRadius(s.thumb.x - origin.x, s.thumb.y - origin.y, BASE_RADIUS)
       : { x: 0, y: 0 };
-
     g.fillStyle(COLORS.joystickBase, active ? 0.12 : 0.06);
     g.fillCircle(origin.x, origin.y, BASE_RADIUS);
     g.lineStyle(px(2), COLORS.joystickBase, active ? 0.35 : 0.18);
     g.strokeCircle(origin.x, origin.y, BASE_RADIUS);
-    g.fillStyle(COLORS.joystickKnob, active ? 0.7 : 0.3);
+    g.fillStyle(knobColour, active ? 0.7 : 0.3);
     g.fillCircle(origin.x + knob.x, origin.y + knob.y, KNOB_RADIUS);
+    if (right) {
+      // A little pupil on the gaze stick says "this one is for looking".
+      g.fillStyle(0x0b0e1a, active ? 0.8 : 0.4);
+      g.fillCircle(origin.x + knob.x, origin.y + knob.y, KNOB_RADIUS * 0.4);
+    }
   }
 }

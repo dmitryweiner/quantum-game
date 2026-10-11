@@ -28,6 +28,9 @@ export class Ui {
   private readonly inspectButton: HTMLButtonElement;
   private readonly focusBox: HTMLElement;
   private readonly focusInput: HTMLInputElement;
+  private readonly focusLabel: HTMLElement;
+  private readonly focusBlurry: HTMLElement;
+  private readonly focusSharp: HTMLElement;
   private glassesMode: Basis | null = null;
   /** Name of the open panel, so background updates only redraw their own panel. */
   private screenName = '';
@@ -43,7 +46,13 @@ export class Ui {
     glasses: () => {},
     focus: (_value: number) => {},
     inspect: () => {},
+    hudResized: () => {},
   };
+
+  /** Bottom edge of the HUD in CSS pixels (0 when hidden). */
+  hudBottom(): number {
+    return this.hud.hidden ? 0 : this.hud.getBoundingClientRect().bottom;
+  }
 
   constructor() {
     this.root = h('div', { id: 'ui' });
@@ -68,12 +77,14 @@ export class Ui {
       class: 'focus-range',
       oninput: () => this.handlers.focus(Number(this.focusInput.value)),
     });
+    this.focusLabel = h('span', { class: 'focus-label' });
+    this.focusBlurry = h('span', { class: 'focus-end' });
+    this.focusSharp = h('span', { class: 'focus-end' });
     this.focusBox = h(
       'div',
       { class: 'focus-box' },
-      h('span', { class: 'focus-end', 'aria-hidden': 'true' }, '🎯'),
-      this.focusInput,
-      h('span', { class: 'focus-end', 'aria-hidden': 'true' }, '☁️'),
+      this.focusLabel,
+      h('div', { class: 'focus-row' }, this.focusBlurry, this.focusInput, this.focusSharp),
     );
     this.focusBox.hidden = true;
     this.langButton = h('button', {
@@ -87,26 +98,36 @@ export class Ui {
       'div',
       { class: 'hud' },
       h(
-        'button',
-        { class: 'icon-btn', 'aria-label': T().menu, onclick: () => this.handlers.menu() },
-        '☰',
-      ),
-      h('div', { class: 'goal' }, this.hudTitle, this.hudGoal),
-      this.hudTimer,
-      this.glassesButton,
-      this.inspectButton,
-      this.langButton,
-      h(
-        'button',
-        { class: 'icon-btn', 'aria-label': 'Learn more', onclick: () => this.handlers.info() },
-        'ℹ️',
+        'div',
+        { class: 'hud-main' },
+        h(
+          'button',
+          { class: 'icon-btn', 'aria-label': T().menu, onclick: () => this.handlers.menu() },
+          '☰',
+        ),
+        h('div', { class: 'goal' }, this.hudTitle, this.hudGoal),
+        this.hudTimer,
       ),
       h(
-        'button',
-        { class: 'icon-btn', 'aria-label': T().retry, onclick: () => this.handlers.restart() },
-        '↻',
+        'div',
+        { class: 'hud-tools' },
+        this.glassesButton,
+        this.inspectButton,
+        this.langButton,
+        h(
+          'button',
+          { class: 'icon-btn', 'aria-label': 'Learn more', onclick: () => this.handlers.info() },
+          'ℹ️',
+        ),
+        h(
+          'button',
+          { class: 'icon-btn', 'aria-label': T().retry, onclick: () => this.handlers.restart() },
+          '↻',
+        ),
       ),
     );
+    // The map is laid out below the HUD, whose height depends on the screen width.
+    new ResizeObserver(() => this.handlers.hudResized()).observe(this.hud);
     this.hud.hidden = true;
     this.root.append(this.hud, this.focusBox);
     document.documentElement.lang = locale();
@@ -115,6 +136,7 @@ export class Ui {
       this.updateLangButton();
       this.setHud(this.hudLevel);
       this.setGlasses(this.glassesMode);
+      if (!this.focusBox.hidden) this.setFocus(Number(this.focusInput.value));
       this.setInspectMode(this.inspectButton.classList.contains('active'));
       this.reopen?.();
     });
@@ -163,7 +185,9 @@ export class Ui {
     this.focusBox.hidden = value === null;
     if (value !== null) this.focusInput.value = String(value);
     this.focusInput.setAttribute('aria-label', T().focusHint);
-    this.focusBox.title = T().focusHint;
+    this.focusLabel.textContent = T().focusLabel;
+    this.focusBlurry.textContent = T().focusBlurry;
+    this.focusSharp.textContent = T().focusSharp;
   }
 
   setInspectMode(on: boolean): void {

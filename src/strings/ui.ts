@@ -37,7 +37,9 @@ const EN = {
   lostEscapedText:
     'The detector found it outside. Your look pinned it down too precisely — and gave it a kick. Try a gentler, blurrier look.',
   lightsOut: '🌑 Lights out',
-  focus: 'Focus',
+  focusLabel: 'Focus of your look',
+  focusBlurry: '☁️ blurry',
+  focusSharp: 'sharp 🎯',
   focusHint:
     'Focus: narrow = sharp look (strong kick), wide = blurry look (gentle). Slider or mouse wheel',
   lostWrongColour: 'The lock stayed shut 🔒',
@@ -89,7 +91,8 @@ const EN = {
     plateName: 'Pressure plate',
     plateWhy: 'Step on it to make the lock measure the far ball in this colour.',
     zoneName: 'Ring',
-    zoneWhy: 'After the dark, a detector checks that the atom is still inside.',
+    zoneWhy:
+      'A trap holds the atom still until you first look at it. After the dark, a detector checks that the atom is still inside.',
     playerName: 'You, the observer 👁️',
     playerWhy: 'Your look is a measurement. Close your eyes and things stop being definite.',
     percent: (p: number) => `${Math.round(p * 100)}%`,
@@ -161,7 +164,9 @@ const RU: Strings = {
   lostEscapedText:
     'Детектор нашёл его снаружи. Твой взгляд зафиксировал атом слишком точно — и толкнул его. Попробуй посмотреть мягче, размыто.',
   lightsOut: '🌑 Свет погас',
-  focus: 'Фокус',
+  focusLabel: 'Фокус взгляда',
+  focusBlurry: '☁️ размыто',
+  focusSharp: 'остро 🎯',
   focusHint:
     'Фокус: узкий — острый взгляд (сильный толчок), широкий — размытый (мягкий). Ползунок или колёсико мыши',
   lostWrongColour: 'Замок не открылся 🔒',
@@ -213,7 +218,8 @@ const RU: Strings = {
     plateName: 'Нажимная плита',
     plateWhy: 'Встань на неё, и замок измерит дальний шар в этом цвете.',
     zoneName: 'Кольцо',
-    zoneWhy: 'После темноты детектор проверит, остался ли атом внутри.',
+    zoneWhy:
+      'Ловушка держит атом неподвижным, пока ты впервые на него не посмотришь. После темноты детектор проверит, остался ли атом внутри.',
     playerName: 'Ты, наблюдатель 👁️',
     playerWhy: 'Твой взгляд — это измерение. Закрой глаза, и всё перестаёт быть определённым.',
     percent: (p: number) => `${Math.round(p * 100)}%`,

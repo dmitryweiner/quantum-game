@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Device preview (dev only)</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 12px;
+        background: #222;
+        color: #ccc;
+        font:
+          13px system-ui,
+          sans-serif;
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      figure {
+        margin: 0;
+      }
+      iframe {
+        border: 1px solid #555;
+        background: #000;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Dev-only page (not part of the build): the game at phone sizes, so layout
+      can be checked from a desktop browser. ?w=390&h=844 sets a custom size;
+      ?level=ch3-02 opens a level directly.
+    -->
+    <script type="module">
+      const q = new URLSearchParams(location.search);
+      const level = q.get('level');
+      const src = '/' + (level ? `?level=${encodeURIComponent(level)}` : '');
+      const sizes = q.get('w')
+        ? [[Number(q.get('w')), Number(q.get('h') ?? 844), 'custom']]
+        : [
+            [390, 844, 'phone portrait 390×844'],
+            [844, 390, 'phone landscape 844×390'],
+          ];
+      for (const [w, h, label] of sizes) {
+        const fig = document.createElement('figure');
+        const frame = document.createElement('iframe');
+        frame.width = String(w);
+        frame.height = String(h);
+        frame.src = src;
+        const cap = document.createElement('figcaption');
+        cap.textContent = label;
+        fig.append(cap, frame);
+        document.body.append(fig);
+      }
+    </script>
+  </body>
+</html>

@@ -9,19 +9,22 @@ export class Controls {
   private readonly desktop: KeyboardMouse;
 
   constructor(scene: Phaser.Scene, uiLayer: Phaser.GameObjects.Layer) {
-    // Two thumbs plus a spare: joystick, gaze, and an accidental palm.
+    // Two thumbs plus a spare: move stick, gaze stick, and an accidental palm.
     scene.input.addPointer(2);
     this.touch = new TouchControls(scene, uiLayer);
     this.desktop = new KeyboardMouse(scene);
   }
 
   read(): ControlState {
-    const tm = this.touch.move;
+    const tm = this.touch.moveVector;
     const move = tm.x !== 0 || tm.y !== 0 ? tm : this.desktop.move;
-    // Once the player has used touch, gaze follows touch only, so a stray
-    // emulated mouse position does not keep the eyes open.
-    const gaze = this.touch.used ? this.touch.gaze : this.desktop.gaze;
-    return { move, gaze };
+    if (this.touch.used) {
+      // Once the player has used touch, gaze follows the gaze stick only, so a
+      // stray emulated mouse position does not keep the eyes open.
+      const angle = this.touch.gazeAngle;
+      return { move, gaze: angle === null ? null : { kind: 'angle', angle } };
+    }
+    return { move, gaze: this.desktop.gaze };
   }
 
   draw(): void {

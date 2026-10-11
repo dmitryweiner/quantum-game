@@ -106,6 +106,8 @@ export class LevelSim {
   darkLeft = 0;
   /** Rounds already survived in the ring. */
   roundsDone = 0;
+  /** 'zone-after-dark': the atom is held still by a trap until it is first seen. */
+  trapped: boolean;
   /** Current field of view, or null with eyes closed. */
   cone: Cone | null = null;
   time = 0;
@@ -136,6 +138,7 @@ export class LevelSim {
       .filter((o) => o.role === 'flower')
       .map((def) => ({ def, r: new RabiSystem(Math.PI / 8) }));
     this.zone = this.map.objects.filter((o) => o.role === 'zone' || o.char === 'A');
+    this.trapped = level.winCondition.type === 'zone-after-dark';
     const open = (c: number, r: number) => !isSolid(this.map, c, r);
     this.bodies = this.map.objects
       .filter((o) => o.role === 'quantum')
@@ -223,7 +226,7 @@ export class LevelSim {
 
     let won = false;
     this.bodies.forEach((body, index) => {
-      body.psi.evolve(dt);
+      if (!this.trapped) body.psi.evolve(dt);
       const { lattice } = body.psi;
       for (let i = 0; i < lattice.size; i++) {
         body.seen[i] = this.sees(lattice.col[i]!, lattice.row[i]!);
@@ -249,6 +252,7 @@ export class LevelSim {
       }
       const seenNow = out.kind === 'found' || out.kind === 'watched';
       if (!seenNow) return;
+      this.trapped = false;
       if (this.level.winCondition.type === 'zone-after-dark' && this.phase === 'look') {
         this.watched += dt;
       }
@@ -375,6 +379,7 @@ export class LevelSim {
     body.psi.setGaussian({ x: def.col, y: def.row }, def.spread ?? 1);
     this.phase = 'look';
     this.watched = 0;
+    this.trapped = true;
     events.push({ type: 'next-round' });
     return null;
   }

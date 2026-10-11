@@ -12,15 +12,18 @@ cloud of ghosts whenever you close your eyes, and collapses wherever you look.
 
 ## Controls
 
-| Action     | Phone                          | Desktop                    |
-| ---------- | ------------------------------ | -------------------------- |
-| Move       | Left thumb (floating joystick) | WASD / arrows              |
-| Look       | Touch / drag on the right half | Mouse                      |
-| Close eyes | Lift the right thumb           | Space or hold right button |
+| Action      | Phone                                    | Desktop                                      |
+| ----------- | ---------------------------------------- | -------------------------------------------- |
+| Walk        | Left stick (left half of the screen)     | WASD / arrows                                |
+| Look        | Right stick — push towards where to look | Mouse, or hold Shift and use the arrows      |
+| Close eyes  | Let go of the right stick                | Space or hold the right button; let go Shift |
+| Focus       | Slider at the bottom (chapter 3+)        | Slider or mouse wheel                        |
+| Glasses Z/X | 👓 button                                | 👓 button or Q                               |
+| Inspect     | 🔍 then tap an object                    | Click an object (or 🔍 / I)                  |
 
 ## Development
 
-Requires Node 24 (see `.nvmrc`).
+Requires Node 24 (see `.nvmrc`). See [AGENTS.md](AGENTS.md) for the working notes, including `/preview.html` to check phone sizes.
 
 ```sh
 npm ci
