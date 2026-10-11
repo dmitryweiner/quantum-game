@@ -87,11 +87,22 @@
   text-align: right;
 }
 
-.hud.covered button:not(.lang-btn),
+.hud.covered button,
 .hud.covered .goal,
 .hud.covered .timer {
   opacity: 0.25;
+}
+
+/* Under a panel only the language button still works (it looks dimmed like the rest). */
+.hud.covered button:not(.lang-btn),
+.hud.covered .goal,
+.hud.covered .timer {
   pointer-events: none;
+}
+
+.hud.covered .lang-btn:hover,
+.hud.covered .lang-btn:focus-visible {
+  opacity: 0.6;
 }
 
 .lang-btn {
