@@ -6,7 +6,10 @@ import { parseMap } from '../src/levels/map';
 import { SANDBOX } from '../src/levels/sandbox';
 import type { LevelDef } from '../src/levels/types';
 import { mulberry32 } from '../src/quantum/rng';
+import { LOCALES, type Text } from '../src/i18n';
 import { EFFECTS } from '../src/strings/effects';
+
+const filled = (t: Text, min = 2) => LOCALES.every((l) => t[l].trim().length >= min);
 
 describe('level definitions', () => {
   it('have unique ids', () => {
@@ -27,16 +30,23 @@ describe('level definitions', () => {
         for (const id of level.effects) {
           const info = EFFECTS[id];
           expect(info, id).toBeDefined();
-          expect(info.summary.length).toBeGreaterThan(20);
-          expect(info.links.length).toBeGreaterThan(0);
-          for (const link of info.links) expect(link.url).toMatch(/^https:\/\//);
+          expect(filled(info.name), id).toBe(true);
+          expect(filled(info.summary, 20), id).toBe(true);
+          for (const l of LOCALES) {
+            expect(info.links[l].length, `${id} ${l}`).toBeGreaterThan(0);
+            for (const link of info.links[l])
+              expect(link.url).toMatch(/^https:\/\/\w+\.wikipedia\.org\//);
+          }
         }
       });
 
       if (level.id !== 'sandbox') {
-        it('explains itself (PLAN.md §1.4)', () => {
-          expect(level.whyClassicalFails.length).toBeGreaterThan(20);
-          expect(level.explanation.length).toBeGreaterThan(20);
+        it('explains itself in every language (PLAN.md §1.4)', () => {
+          expect(filled(level.title)).toBe(true);
+          expect(filled(level.goal)).toBe(true);
+          if (level.hint) expect(filled(level.hint, 20)).toBe(true);
+          expect(filled(level.whyClassicalFails, 20)).toBe(true);
+          expect(filled(level.explanation, 20)).toBe(true);
         });
       }
     });

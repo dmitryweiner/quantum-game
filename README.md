@@ -36,7 +36,7 @@ Stack: TypeScript (strict), Phaser 4, Vite, Vitest, ESLint, Prettier.
 - `src/quantum/` — pure TypeScript model with a seedable RNG, fully unit-tested.
 - `src/game/` — Phaser layer: scenes, entities, input, systems.
 - `src/levels/` — level maps and definitions; `tests/levels.test.ts` playtests them by simulation.
-- `src/strings/` — all player-facing text (English).
+- `src/i18n/`, `src/strings/` — all player-facing text, in English and Russian.
 
 Every push to `main` is deployed to GitHub Pages by `.github/workflows/deploy.yml`.
 

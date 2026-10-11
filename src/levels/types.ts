@@ -1,3 +1,4 @@
+import type { Text } from '../i18n';
 import type { EffectId } from '../strings/effects';
 
 /** How a level is won. */
@@ -10,15 +11,15 @@ export interface LevelDef {
   /** 'ch1-03' */
   id: string;
   chapter: number;
-  title: string;
+  title: Text;
   /** Short goal for the HUD. */
-  goal: string;
+  goal: Text;
   /** Only in the first (demo) level of a chapter. */
-  hint?: string;
+  hint?: Text;
   /** Why a classical strategy cannot pass this level (PLAN.md §1.4.1). */
-  whyClassicalFails: string;
+  whyClassicalFails: Text;
   /** "What just happened?" text shown after winning. */
-  explanation: string;
+  explanation: Text;
   /** Every quantum effect that shows up in the level. */
   effects: EffectId[];
   map: string[];

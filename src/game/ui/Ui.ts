@@ -1,7 +1,8 @@
 import { LEVELS } from '../../levels';
 import type { LevelDef } from '../../levels/types';
 import { EFFECTS, type EffectId } from '../../strings/effects';
-import { UI } from '../../strings/ui';
+import { LOCALE_NAMES, LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
+import { T } from '../../strings/ui';
 import { h, type Child } from './dom';
 import { completedLevels } from './progress';
 import './ui.css';
@@ -17,6 +18,7 @@ export class Ui {
   private readonly hudGoal: HTMLElement;
   private readonly hudTimer: HTMLElement;
   private screen: HTMLElement | null = null;
+  private hudLevel: LevelDef | null = null;
   private onKey: ((e: KeyboardEvent) => void) | null = null;
 
   /** Set by the level scene. */
@@ -36,7 +38,7 @@ export class Ui {
       { class: 'hud' },
       h(
         'button',
-        { class: 'icon-btn', 'aria-label': UI.menu, onclick: () => this.handlers.menu() },
+        { class: 'icon-btn', 'aria-label': T().menu, onclick: () => this.handlers.menu() },
         '☰',
       ),
       h('div', { class: 'goal' }, this.hudTitle, this.hudGoal),
@@ -48,12 +50,14 @@ export class Ui {
       ),
       h(
         'button',
-        { class: 'icon-btn', 'aria-label': UI.retry, onclick: () => this.handlers.restart() },
+        { class: 'icon-btn', 'aria-label': T().retry, onclick: () => this.handlers.restart() },
         '↻',
       ),
     );
     this.hud.hidden = true;
     this.root.append(this.hud);
+    document.documentElement.lang = locale();
+    onLocaleChange(() => this.setHud(this.hudLevel));
     document.body.append(this.root);
   }
 
@@ -62,11 +66,12 @@ export class Ui {
   }
 
   setHud(level: LevelDef | null): void {
+    this.hudLevel = level;
     this.hud.hidden = level === null;
     if (!level) return;
     this.hudTitle.textContent =
-      level.chapter > 0 ? `${UI.chapter(level.chapter)} · ${level.title}` : level.title;
-    this.hudGoal.textContent = level.goal;
+      level.chapter > 0 ? `${T().chapter(level.chapter)} · ${tr(level.title)}` : tr(level.title);
+    this.hudGoal.textContent = tr(level.goal);
     this.setTimer(null);
   }
 
@@ -125,11 +130,29 @@ export class Ui {
     const done = completedLevels();
     const chapters = [...new Set(LEVELS.map((l) => l.chapter))];
     const content: Child[] = [
-      h('h1', {}, `👁️ ${UI.title}`),
-      h('p', { class: 'muted' }, UI.tagline),
+      h('h1', {}, `👁️ ${T().title}`),
+      h('p', { class: 'muted' }, T().tagline),
+      h(
+        'div',
+        { class: 'lang', role: 'group', 'aria-label': T().language },
+        ...LOCALES.map((l) =>
+          h(
+            'button',
+            {
+              class: l === locale() ? 'btn primary' : 'btn',
+              lang: l,
+              onclick: () => {
+                setLocale(l);
+                this.showMenu(onPick);
+              },
+            },
+            LOCALE_NAMES[l],
+          ),
+        ),
+      ),
     ];
     for (const ch of chapters) {
-      content.push(h('h2', {}, `${UI.chapter(ch)} · ${UI.chapterTitles[ch] ?? ''}`));
+      content.push(h('h2', {}, `${T().chapter(ch)} · ${T().chapterTitles[ch] ?? ''}`));
       const list = h('ul', { class: 'level-list' });
       LEVELS.filter((l) => l.chapter === ch).forEach((l, i) => {
         list.append(
@@ -140,7 +163,7 @@ export class Ui {
               'button',
               { class: 'btn', onclick: () => (this.closeScreen(), onPick(l.id)) },
               h('span', { class: 'num' }, `${ch}.${i + 1}`),
-              l.title,
+              tr(l.title),
               done.has(l.id) && h('span', { class: 'done' }, '✓'),
             ),
           ),
@@ -149,7 +172,7 @@ export class Ui {
       content.push(list);
     }
     content.push(
-      h('h2', {}, UI.sandbox),
+      h('h2', {}, T().sandbox),
       h(
         'ul',
         { class: 'level-list' },
@@ -160,7 +183,7 @@ export class Ui {
             'button',
             { class: 'btn', onclick: () => (this.closeScreen(), onPick('sandbox')) },
             '🧪',
-            UI.sandboxNote,
+            T().sandboxNote,
           ),
         ),
       ),
@@ -172,26 +195,26 @@ export class Ui {
   showIntro(level: LevelDef, touch: boolean, onStart: () => void, onMenu: () => void): void {
     this.open(
       [
-        h('p', { class: 'muted' }, level.chapter > 0 ? UI.chapter(level.chapter) : ''),
-        h('h1', {}, level.title),
-        h('p', {}, level.goal),
-        level.hint && h('p', { class: 'hint' }, level.hint),
-        h('p', { class: 'muted' }, touch ? UI.controlsTouch : UI.controlsDesktop),
-        level.chapter > 0 && h('h2', {}, UI.whyClassicalFails),
-        level.chapter > 0 && h('p', {}, level.whyClassicalFails),
+        h('p', { class: 'muted' }, level.chapter > 0 ? T().chapter(level.chapter) : ''),
+        h('h1', {}, tr(level.title)),
+        h('p', {}, tr(level.goal)),
+        level.hint && h('p', { class: 'hint' }, tr(level.hint)),
+        h('p', { class: 'muted' }, touch ? T().controlsTouch : T().controlsDesktop),
+        level.chapter > 0 && h('h2', {}, T().whyClassicalFails),
+        level.chapter > 0 && h('p', {}, tr(level.whyClassicalFails)),
         this.effectsLink(level, () => this.showIntro(level, touch, onStart, onMenu)),
       ],
       [
-        { label: UI.start, primary: true, run: onStart },
-        { label: UI.menu, cancel: true, run: onMenu },
+        { label: T().start, primary: true, run: onStart },
+        { label: T().menu, cancel: true, run: onMenu },
       ],
     );
   }
 
   showLearnMore(effects: readonly EffectId[], onClose: () => void): void {
     this.open(
-      [h('h1', {}, UI.learnMoreTitle), ...effects.map((id) => this.effectCard(id))],
-      [{ label: UI.close, primary: true, cancel: true, run: onClose }],
+      [h('h1', {}, T().learnMoreTitle), ...effects.map((id) => this.effectCard(id))],
+      [{ label: T().close, primary: true, cancel: true, run: onClose }],
     );
   }
 
@@ -202,26 +225,26 @@ export class Ui {
   ): void {
     this.open(
       [
-        h('h1', {}, UI.won),
-        h('h2', {}, UI.whatHappened),
-        h('p', {}, level.explanation),
-        !next && h('p', { class: 'muted' }, UI.allDone),
+        h('h1', {}, T().won),
+        h('h2', {}, T().whatHappened),
+        h('p', {}, tr(level.explanation)),
+        !next && h('p', { class: 'muted' }, T().allDone),
         this.effectsLink(level, () => this.showWin(level, next, on)),
       ],
       [
-        ...(next ? [{ label: UI.next, primary: true, run: on.next }] : []),
-        { label: UI.retry, primary: !next, run: on.replay },
-        { label: UI.menu, cancel: true, run: on.menu },
+        ...(next ? [{ label: T().next, primary: true, run: on.next }] : []),
+        { label: T().retry, primary: !next, run: on.replay },
+        { label: T().menu, cancel: true, run: on.menu },
       ],
     );
   }
 
   showLose(onRetry: () => void, onMenu: () => void): void {
     this.open(
-      [h('h1', {}, UI.lost), h('p', {}, UI.lostText)],
+      [h('h1', {}, T().lost), h('p', {}, T().lostText)],
       [
-        { label: UI.retry, primary: true, run: onRetry },
-        { label: UI.menu, cancel: true, run: onMenu },
+        { label: T().retry, primary: true, run: onRetry },
+        { label: T().menu, cancel: true, run: onMenu },
       ],
     );
   }
@@ -233,7 +256,7 @@ export class Ui {
       h(
         'button',
         { class: 'btn', onclick: () => this.showLearnMore(level.effects, back) },
-        UI.learnMore,
+        T().learnMore,
       ),
     );
   }
@@ -243,12 +266,12 @@ export class Ui {
     return h(
       'div',
       { class: 'effect' },
-      h('h3', {}, info.name),
-      h('p', {}, info.summary),
+      h('h3', {}, tr(info.name)),
+      h('p', {}, tr(info.summary)),
       h(
         'div',
         {},
-        ...info.links.map((l) =>
+        ...info.links[locale()].map((l) =>
           h('a', { href: l.url, target: '_blank', rel: 'noopener' }, `${l.title} ↗`),
         ),
       ),

@@ -3,7 +3,6 @@ import { levelById, nextLevel } from '../../levels';
 import { SANDBOX } from '../../levels/sandbox';
 import type { LevelDef } from '../../levels/types';
 import { mulberry32 } from '../../quantum/rng';
-import { UI } from '../../strings/ui';
 import { CELL, COLORS, UI_FONT } from '../constants';
 import { px } from '../display';
 import { emojiTexture } from '../emoji';
@@ -134,7 +133,8 @@ export class LevelScene extends Phaser.Scene {
       const spread = body !== undefined && body.psi.definiteSite() < 0;
       const site = body?.psi.lattice.siteAt(label.col, label.row) ?? -1;
       label.text.setVisible(spread && site >= 0);
-      if (spread && site >= 0) label.text.setText(UI.doorChance(body.psi.probability(site)));
+      if (spread && site >= 0)
+        label.text.setText(`${Math.round(body.psi.probability(site) * 100)}%`);
     }
   }
 

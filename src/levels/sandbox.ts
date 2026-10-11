@@ -4,10 +4,13 @@ import type { LevelDef } from './types';
 export const SANDBOX: LevelDef = {
   id: 'sandbox',
   chapter: 0,
-  title: 'Sandbox',
-  goal: 'Look around. Close your eyes. Look again.',
-  whyClassicalFails: '',
-  explanation: '',
+  title: { en: 'Sandbox', ru: 'Песочница' },
+  goal: {
+    en: 'Look around. Close your eyes. Look again.',
+    ru: 'Осмотрись. Закрой глаза. Посмотри снова.',
+  },
+  whyClassicalFails: { en: '', ru: '' },
+  explanation: { en: '', ru: '' },
   effects: ['superposition', 'collapse', 'born-rule', 'quantum-walk', 'negative-result', 'zeno'],
   map: [
     '###########',
