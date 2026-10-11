@@ -42,6 +42,9 @@ describe('level definitions', () => {
           case 'bombs':
             expect(level.winCondition.bombs).toBeLessThan(level.winCondition.boxes);
             break;
+          case 'teleport':
+          case 'spy':
+            break;
           case 'escape':
             expect(has('core') && has('exit')).toBe(true);
             break;

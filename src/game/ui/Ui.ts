@@ -9,6 +9,12 @@ import { play, setSoundEnabled, soundEnabled } from '../audio';
 import { h, type Child } from './dom';
 import { bombPanel, type BombPanelState } from './BombPanel';
 import { chshPanel, type ChshState } from './ChshPanel';
+import {
+  spyPanel,
+  teleportPanel,
+  type SpyPanelState,
+  type TeleportPanelState,
+} from './QinfoPanels';
 import type { InspectInfo } from './inspect';
 import { completedLevels } from './progress';
 import './ui.css';
@@ -501,6 +507,7 @@ export class Ui {
       escaped: [T().lostEscaped, T().lostEscapedText],
       core: [T().lostCore, T().lostCoreText],
       exploded: [T().lostBombs, T().lostBombsText],
+      'wrong-call': [T().lostSpy, T().lostSpyText],
     }[reason];
     this.open(
       [h('h1', {}, text[0]), h('p', {}, text[1])],
@@ -533,6 +540,32 @@ export class Ui {
       [{ label: T().menu, cancel: true, run: on.menu }],
       show,
       'chsh',
+    );
+  }
+
+  /** Chapter 6 panels: the teleporter and the spy on the line. */
+  showQinfo(
+    level: LevelDef,
+    state: { kind: 'teleport'; s: TeleportPanelState } | { kind: 'spy'; s: SpyPanelState },
+    on: { won: () => void; lost: () => void; menu: () => void },
+  ): void {
+    const show = () => this.showQinfo(level, state, on);
+    const events = {
+      rerender: () => {
+        if (this.screenName === 'qinfo') show();
+      },
+      won: on.won,
+      lost: on.lost,
+    };
+    this.open(
+      [
+        h('h1', {}, tr(level.title)),
+        state.kind === 'teleport' ? teleportPanel(state.s, events) : spyPanel(state.s, events),
+        this.effectsLink(level, show),
+      ],
+      [{ label: T().menu, cancel: true, run: on.menu }],
+      show,
+      'qinfo',
     );
   }
 

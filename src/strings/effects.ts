@@ -19,7 +19,9 @@ export type EffectId =
   | 'tunnelling'
   | 'decoherence'
   | 'interference'
-  | 'interaction-free';
+  | 'interaction-free'
+  | 'teleportation'
+  | 'qkd';
 
 export interface EffectLink {
   title: string;
@@ -355,6 +357,59 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
         {
           title: 'Википедия: Интерферометр Маха — Цендера',
           url: wiki('ru', 'Интерферометр_Маха_—_Цендера'),
+        },
+      ],
+    },
+  },
+  teleportation: {
+    id: 'teleportation',
+    name: { en: 'Teleportation and no-cloning', ru: 'Телепортация и запрет клонирования' },
+    summary: {
+      en:
+        'An unknown quantum state cannot be copied, and looking at it destroys it. But it can be moved: a joint measurement with one half of an entangled pair ' +
+        'gives two ordinary bits, and with them the far half is turned into the original. The original is gone — nothing travels faster than the two bits.',
+      ru:
+        'Неизвестное квантовое состояние нельзя скопировать, а взгляд на него его разрушает. Но его можно перенести: совместное измерение с половинкой запутанной пары ' +
+        'даёт два обычных бита, и по ним дальнюю половинку превращают в оригинал. Оригинала больше нет — и ничто не летит быстрее этих двух битов.',
+    },
+    links: {
+      en: [
+        { title: 'Wikipedia: Quantum teleportation', url: wiki('en', 'Quantum_teleportation') },
+        { title: 'Wikipedia: No-cloning theorem', url: wiki('en', 'No-cloning_theorem') },
+      ],
+      ru: [
+        { title: 'Википедия: Квантовая телепортация', url: wiki('ru', 'Квантовая_телепортация') },
+        {
+          title: 'Википедия: Теорема о запрете клонирования',
+          url: wiki('ru', 'Теорема_о_запрете_клонирования'),
+        },
+      ],
+    },
+  },
+  qkd: {
+    id: 'qkd',
+    name: { en: 'Quantum key distribution (BB84)', ru: 'Квантовое распределение ключа (BB84)' },
+    summary: {
+      en:
+        'Send a secret key as single photons, each in a randomly chosen basis. An eavesdropper has to look to learn anything, and looking with the wrong glasses ' +
+        'scrambles the photon — so comparing a few bits in public reveals any spy. Banks and governments already use this.',
+      ru:
+        'Секретный ключ передают одиночными фотонами, каждый — в случайно выбранном базисе. Шпиону, чтобы что-то узнать, приходится смотреть, а взгляд «не в тех очках» ' +
+        'портит фотон — поэтому сверка нескольких бит в открытую выдаёт любого шпиона. Это уже используют банки и правительства.',
+    },
+    links: {
+      en: [
+        { title: 'Wikipedia: BB84', url: wiki('en', 'BB84') },
+        {
+          title: 'Wikipedia: Quantum key distribution',
+          url: wiki('en', 'Quantum_key_distribution'),
+        },
+      ],
+      ru: [
+        { title: 'Википедия: BB84', url: wiki('ru', 'BB84') },
+        {
+          title: 'Википедия: Квантовое распределение ключа',
+          url: wiki('ru', 'Квантовое_распределение_ключа'),
         },
       ],
     },

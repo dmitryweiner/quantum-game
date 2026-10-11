@@ -3,6 +3,7 @@ import { CHAPTER_2 } from './ch2';
 import { CHAPTER_3 } from './ch3';
 import { CHAPTER_4 } from './ch4';
 import { CHAPTER_5 } from './ch5';
+import { CHAPTER_6 } from './ch6';
 import type { LevelDef } from './types';
 
 export const LEVELS: readonly LevelDef[] = [
@@ -11,6 +12,7 @@ export const LEVELS: readonly LevelDef[] = [
   ...CHAPTER_3,
   ...CHAPTER_4,
   ...CHAPTER_5,
+  ...CHAPTER_6,
 ];
 
 export function levelById(id: string): LevelDef | undefined {

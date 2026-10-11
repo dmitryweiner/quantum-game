@@ -35,6 +35,10 @@ export type WinCondition =
       maxBooms: number;
       maxPasses: number;
     }
+  /** Teleport a hidden colour to a sealed room `rounds` times in a row (a panel). */
+  | { type: 'teleport'; rounds: number }
+  /** BB84: judge `channels` lines in a row — clean, or tapped by a spy (a panel). */
+  | { type: 'spy'; channels: number }
   /** Reach the exit 🏁; every core ☢️ must still be intact when checked there. */
   | { type: 'escape' }
   /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */

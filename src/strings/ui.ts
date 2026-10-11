@@ -19,6 +19,7 @@ const EN = {
     3: 'Uncertainty',
     4: 'Other Observers',
     5: 'Interference',
+    6: 'Quantum Information',
   } as Record<number, string>,
   classical: {
     title: 'Classical mode',
@@ -54,6 +55,8 @@ const EN = {
     escape: 'Out, core intact! 🏁',
     'light-lamp': 'The lamp is lit! 💡',
     bombs: 'Bombs sorted safely! 💣',
+    teleport: 'Teleported! ✨',
+    spy: 'The line is safe with you! 🔐',
     chsh: 'Telepathy confirmed! 🎉',
   },
   lost: 'Time’s up ⏳',
@@ -71,9 +74,55 @@ const EN = {
   lostCore: 'The core decayed 💥',
   lostCoreText:
     'Left unwatched, the core slid towards decay — and a look found it gone. Keep it in sight the whole time; brief glances away are fine.',
+  lostSpy: 'Wrong call 🕵️',
+  lostSpyText:
+    'Compare enough bits before you decide: with a spy on the line, about one in four of them disagree.',
   lostBombs: 'Too many explosions 💥',
   lostBombsText:
     'The live bombs went off before you could prove one safely. Try again — the boxes are reshuffled.',
+  teleport: {
+    scheme:
+      'Your room: the secret 🎁 and your half of an entangled pair ⚪. Sealed room: the other half ⚪. Between the rooms only a phone line for ordinary bits.',
+    streak: (n: number, of: number) => `Teleported in a row: ${n} / ${of}`,
+    secret: 'Secret',
+    far: 'Far ball',
+    bell: '🔬 Bell measurement (secret + your half)',
+    bits: (z: string, x: string) => `Bits on the phone: Z-bit ${z} · X-bit ${x}`,
+    flipX: (on: boolean) => `${on ? '✅' : '⬜'} Flip X on the far ball`,
+    flipZ: (on: boolean) => `${on ? '✅' : '⬜'} Flip Z on the far ball`,
+    rule: 'Rule: X-bit 1 → flip X; Z-bit 1 → flip Z.',
+    peek: '👀 Peek at the secret (Z glasses) and phone the colour',
+    peeked: (c: string) =>
+      `You saw ${c} and had the far ball made ${c}. The secret itself is spoilt now.`,
+    check: '✅ Check the far ball',
+    match: (c: string) => `Match! The secret was ${c}, and the far ball is ${c} too.`,
+    miss: (c: string) => `No match — the secret was ${c}. The streak starts again.`,
+    next: 'Next secret ▶',
+  },
+  spy: {
+    scheme:
+      'The robot 🤖 sends you single photons for a secret key, each in random glasses. A spy 🕵️ may be on the line — or not.',
+    progress: (n: number, of: number) => `Lines judged correctly: ${n} / ${of}`,
+    receive: (n: number) => `📡 Receive ${n} photons (random glasses)`,
+    received: (n: number, kept: number) =>
+      `Received ${n}. Glasses matched the robot’s on ${kept} — that is your raw key.`,
+    compareLabel: (k: number, max: number) =>
+      `Compare ${k} of them in public (the message needs the rest; at most ${max})`,
+    compare: (k: number) => `🔍 Compare ${k} bits`,
+    compared: (checked: number, errors: number): string =>
+      errors === 0 ? `Compared ${checked}: all agree.` : `Compared ${checked}: ${errors} disagree!`,
+    clean: '✅ Line is clean — send the secret',
+    spyCall: '🚨 Spy! Throw the key away',
+    right: (spy: boolean): string =>
+      spy
+        ? 'Right — there was a spy 🕵️. Key thrown away.'
+        : 'Right — the line was clean. Secret delivered 🔐.',
+    wrong: (spy: boolean): string =>
+      spy
+        ? 'Wrong — there was a spy 🕵️, and now she has your secret.'
+        : 'Wrong — the line was clean; you threw away a good key.',
+    next: 'Next line ▶',
+  },
   bombs: {
     table:
       'Interferometer: 🔦 → beam splitter → two arms (one through the box) → beam splitter → detectors 🟢 bright / 🔴 dark',
@@ -233,6 +282,7 @@ const RU: Strings = {
     3: 'Неопределённость',
     4: 'Чужие наблюдатели',
     5: 'Интерференция',
+    6: 'Квантовая информация',
   },
   classical: {
     title: 'Классический режим',
@@ -268,6 +318,8 @@ const RU: Strings = {
     escape: 'Выбрался, ядро цело! 🏁',
     'light-lamp': 'Лампа горит! 💡',
     bombs: 'Бомбы найдены без риска! 💣',
+    teleport: 'Телепортировано! ✨',
+    spy: 'С тобой линия в безопасности! 🔐',
     chsh: 'Телепатия подтверждена! 🎉',
   },
   lost: 'Время вышло ⏳',
@@ -286,9 +338,57 @@ const RU: Strings = {
   lostCore: 'Ядро распалось 💥',
   lostCoreText:
     'Без присмотра ядро скатилось к распаду, и взгляд застал его уже распавшимся. Держи его в поле зрения всё время; короткие отлучки не страшны.',
+  lostSpy: 'Неверное решение 🕵️',
+  lostSpyText:
+    'Сверь достаточно бит, прежде чем решать: если на линии шпион, не совпадает примерно каждый четвёртый.',
   lostBombs: 'Слишком много взрывов 💥',
   lostBombsText:
     'Живые бомбы взорвались раньше, чем ты успел безопасно доказать хоть одну. Попробуй ещё — коробки перемешаны заново.',
+  teleport: {
+    scheme:
+      'Твоя комната: секрет 🎁 и твоя половинка запутанной пары ⚪. Запертая комната: другая половинка ⚪. Между комнатами — только телефон для обычных битов.',
+    streak: (n: number, of: number) => `Телепортировано подряд: ${n} / ${of}`,
+    secret: 'Секрет',
+    far: 'Дальний шар',
+    bell: '🔬 Измерение Белла (секрет + твоя половинка)',
+    bits: (z: string, x: string) => `Биты по телефону: Z-бит ${z} · X-бит ${x}`,
+    flipX: (on: boolean) => `${on ? '✅' : '⬜'} Перевернуть дальний шар по X`,
+    flipZ: (on: boolean) => `${on ? '✅' : '⬜'} Перевернуть дальний шар по Z`,
+    rule: 'Правило: X-бит 1 → переворот X; Z-бит 1 → переворот Z.',
+    peek: '👀 Подсмотреть секрет (очки Z) и сообщить цвет',
+    peeked: (c: string) =>
+      `Ты увидел ${c} и попросил сделать дальний шар ${c}. Сам секрет теперь испорчен.`,
+    check: '✅ Проверить дальний шар',
+    match: (c: string) => `Совпало! Секрет был ${c}, и дальний шар тоже ${c}.`,
+    miss: (c: string) => `Не совпало — секрет был ${c}. Серия начинается заново.`,
+    next: 'Следующий секрет ▶',
+  },
+  spy: {
+    scheme:
+      'Робот 🤖 присылает тебе одиночные фотоны для секретного ключа, каждый — в случайных очках. На линии может сидеть шпион 🕵️ — а может и не сидеть.',
+    progress: (n: number, of: number) => `Верно оценено линий: ${n} / ${of}`,
+    receive: (n: number) => `📡 Принять ${n} фотона (случайные очки)`,
+    received: (n: number, kept: number) =>
+      `Принято ${n}. Очки совпали с очками робота у ${kept} — это сырой ключ.`,
+    compareLabel: (k: number, max: number) =>
+      `Сверить ${k} из них в открытую (остальное нужно для сообщения; не больше ${max})`,
+    compare: (k: number) => `🔍 Сверить ${k} бит`,
+    compared: (checked: number, errors: number): string =>
+      errors === 0
+        ? `Сверено ${checked}: все совпали.`
+        : `Сверено ${checked}: ${errors} не совпали!`,
+    clean: '✅ Линия чиста — отправить секрет',
+    spyCall: '🚨 Шпион! Выбросить ключ',
+    right: (spy: boolean): string =>
+      spy
+        ? 'Верно — шпион был 🕵️. Ключ выброшен.'
+        : 'Верно — линия была чиста. Секрет доставлен 🔐.',
+    wrong: (spy: boolean): string =>
+      spy
+        ? 'Ошибка — шпион был 🕵️, и теперь твой секрет у него.'
+        : 'Ошибка — линия была чиста, а ты выбросил хороший ключ.',
+    next: 'Следующая линия ▶',
+  },
   bombs: {
     table:
       'Интерферометр: 🔦 → светоделитель → два плеча (одно через коробку) → светоделитель → детекторы 🟢 светлый / 🔴 тёмный',

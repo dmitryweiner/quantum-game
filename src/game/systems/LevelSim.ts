@@ -44,7 +44,7 @@ export interface Flower {
   r: RabiSystem;
 }
 
-export type LossReason = 'time' | 'wrong-colour' | 'escaped' | 'core' | 'exploded';
+export type LossReason = 'time' | 'wrong-colour' | 'escaped' | 'core' | 'exploded' | 'wrong-call';
 
 export interface Camera {
   def: MapObject;

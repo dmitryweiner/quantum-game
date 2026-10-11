@@ -20,6 +20,12 @@ import { play } from '../audio';
 import { ui } from '../ui';
 import { newBombPanelState, type BombPanelState } from '../ui/BombPanel';
 import { newChshState, type ChshState } from '../ui/ChshPanel';
+import {
+  newSpyPanelState,
+  newTeleportPanelState,
+  type SpyPanelState,
+  type TeleportPanelState,
+} from '../ui/QinfoPanels';
 import { markCompleted } from '../ui/progress';
 
 export interface LevelSceneData {
@@ -54,6 +60,8 @@ export class LevelScene extends Phaser.Scene {
   private thread: EntanglementThread | null = null;
   private chsh: ChshState | null = null;
   private bombs: BombPanelState | null = null;
+  private qinfo:
+    { kind: 'teleport'; s: TeleportPanelState } | { kind: 'spy'; s: SpyPanelState } | null = null;
   /** Two-slit visuals: flight waves and the dots on the screen. */
   private flight!: Phaser.GameObjects.Graphics;
   private flights = new Map<number, { seen: { col: number; row: number } | null }>();
@@ -123,6 +131,13 @@ export class LevelScene extends Phaser.Scene {
     this.qubits = this.sim.qubits.map((q) => new Qubit(this, this.worldLayer, q));
     this.chsh = this.level.winCondition.type === 'chsh' ? newChshState() : null;
     this.bombs = this.level.winCondition.type === 'bombs' ? newBombPanelState(this.level) : null;
+    const cond = this.level.winCondition;
+    this.qinfo =
+      cond.type === 'teleport'
+        ? { kind: 'teleport', s: newTeleportPanelState(cond.rounds) }
+        : cond.type === 'spy'
+          ? { kind: 'spy', s: newSpyPanelState(cond.channels) }
+          : null;
     this.flights = new Map();
     this.hitCounts = new Map();
     this.screenGlow = this.add.graphics();
@@ -202,6 +217,13 @@ export class LevelScene extends Phaser.Scene {
     if (this.chsh) {
       ui().showChsh(this.level, this.chsh, {
         pass: () => this.onWon(),
+        menu: () => this.openMenu(),
+      });
+    }
+    if (this.qinfo) {
+      ui().showQinfo(this.level, this.qinfo, {
+        won: () => this.onWon(),
+        lost: () => this.onLost('wrong-call'),
         menu: () => this.openMenu(),
       });
     }
@@ -460,8 +482,9 @@ export class LevelScene extends Phaser.Scene {
     play('win');
     if (this.level !== SANDBOX) markCompleted(this.level.id);
     const next = nextLevel(this.level.id);
-    // Let the player see the flash, or the CHSH result, before the panel.
-    const delay = this.level.winCondition.type === 'chsh' ? 1800 : 700;
+    // Let the player see the flash, or a lab panel's last result, before the win panel.
+    const panel = ['chsh', 'bombs', 'teleport', 'spy'].includes(this.level.winCondition.type);
+    const delay = panel ? 1800 : 700;
     this.time.delayedCall(delay, () =>
       ui().showWin(this.level, next, {
         next: () => next && this.scene.restart({ levelId: next.id }),

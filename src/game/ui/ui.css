@@ -444,3 +444,28 @@
   text-align: center;
   pointer-events: auto;
 }
+
+.tele-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 34px;
+}
+
+.tele-ball {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tele-ball small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tele-arrow {
+  font-size: 16px;
+  color: var(--muted);
+}
