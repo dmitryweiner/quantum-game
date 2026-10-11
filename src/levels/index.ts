@@ -2,9 +2,16 @@ import { CHAPTER_1 } from './ch1';
 import { CHAPTER_2 } from './ch2';
 import { CHAPTER_3 } from './ch3';
 import { CHAPTER_4 } from './ch4';
+import { CHAPTER_5 } from './ch5';
 import type { LevelDef } from './types';
 
-export const LEVELS: readonly LevelDef[] = [...CHAPTER_1, ...CHAPTER_2, ...CHAPTER_3, ...CHAPTER_4];
+export const LEVELS: readonly LevelDef[] = [
+  ...CHAPTER_1,
+  ...CHAPTER_2,
+  ...CHAPTER_3,
+  ...CHAPTER_4,
+  ...CHAPTER_5,
+];
 
 export function levelById(id: string): LevelDef | undefined {
   return LEVELS.find((l) => l.id === id);

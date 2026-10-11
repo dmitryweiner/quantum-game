@@ -19,6 +19,7 @@ import {
 } from '../../quantum/entangled';
 import { floodLattice } from '../../quantum/lattice';
 import type { Rng } from '../../quantum/rng';
+import { doubleSlitRows, sampleScreenRow } from '../../quantum/interference';
 import { Qubit, RabiSystem } from '../../quantum/qubit';
 import { pickWeighted } from '../../quantum/rng';
 import { Superposition } from '../../quantum/superposition';
@@ -43,7 +44,7 @@ export interface Flower {
   r: RabiSystem;
 }
 
-export type LossReason = 'time' | 'wrong-colour' | 'escaped' | 'core';
+export type LossReason = 'time' | 'wrong-colour' | 'escaped' | 'core' | 'exploded';
 
 export interface Camera {
   def: MapObject;
@@ -102,12 +103,26 @@ export type SimEvent =
   /** A lamp or flower got a new definite state, or a blurry atom was sighted. */
   | { type: 'flash'; col: number; row: number }
   | { type: 'lights-out' }
+  /** Two-slit: a particle passed the slits (`slit` = where it was seen, if watched). */
+  | { type: 'particle-passed'; id: number; seen: MapObject | null }
+  | { type: 'particle-hit'; id: number; col: number; row: number; lamp: boolean }
   | { type: 'next-round' }
   | { type: 'detector'; col: number; row: number; inZone: boolean }
   | { type: 'won' }
   | { type: 'lost'; reason: LossReason };
 
 export type SimStatus = 'playing' | 'won' | 'lost';
+
+/** One particle of a two-slit experiment, in flight. */
+export interface Particle {
+  id: number;
+  age: number;
+  /** Did anything learn which slit it took? Decided as it passes the slits. */
+  whichPath: boolean | null;
+}
+
+/** Two-slit timing, seconds. */
+export const SLITS = { interval: 1, flight: 1, passage: 0.45 } as const;
 
 export const BASIS_ANGLE: Readonly<Record<Basis, number>> = { Z: Z_ANGLE, X: X_ANGLE };
 
@@ -133,6 +148,15 @@ export class LevelSim {
   private readonly hotCells: Set<string>;
   private readonly switches: MapObject[];
   private readonly exits: MapObject[];
+  /** Two-slit experiment, if the level has one. */
+  readonly source: MapObject | null;
+  readonly slits: MapObject[];
+  /** Screen cells in order along the screen. */
+  readonly screen: MapObject[];
+  particles: Particle[] = [];
+  lampHits = 0;
+  private nextParticle = 0;
+  private emitIn = 0.3;
   player: Vec2;
   glasses: Basis = 'Z';
   /** 0 = wide and blurry, 1 = narrow and sharp. Only levels with `focus` use it. */
@@ -193,6 +217,11 @@ export class LevelSim {
       this.map.objects.filter((o) => o.role === 'hot').map((o) => `${o.col},${o.row}`),
     );
     this.exits = this.map.objects.filter((o) => o.role === 'exit');
+    this.source = this.map.objects.find((o) => o.role === 'source') ?? null;
+    this.slits = this.map.objects.filter((o) => o.role === 'slit');
+    this.screen = this.map.objects
+      .filter((o) => o.role === 'screen')
+      .sort((a, b) => a.row - b.row || a.col - b.col);
     this.cores = this.map.objects
       .filter((o) => o.role === 'core')
       .map((def) => ({
@@ -331,6 +360,7 @@ export class LevelSim {
       this.camerasOn = this.switches.some((w) => w.col === me.col && w.row === me.row);
     }
     won = this.otherObservers(dt, events) || won;
+    if (this.source) won = this.slitExperiment(dt, events) || won;
     if (this.observeCores(dt, events)) return this.lose(events, 'core');
 
     this.observeQubits(events);
@@ -405,6 +435,71 @@ export class LevelSim {
         events.push({ type: 'flash', col: flower.def.col, row: flower.def.row });
       }
     }
+  }
+
+  /** Position along the screen of the point in line with the slits' midpoint. */
+  private screenCentre(): number {
+    const first = this.screen[0];
+    if (!first || this.slits.length === 0) return 0;
+    const vertical = this.screen.every((c) => c.col === first.col);
+    const mid =
+      this.slits.reduce((sum, sl) => sum + (vertical ? sl.row : sl.col), 0) / this.slits.length;
+    return mid - (vertical ? first.row : first.col);
+  }
+
+  /**
+   * Two-slit experiment: a particle every second; as it passes the slits,
+   * a look at either slit learns which way it went; on the screen it lands
+   * by the Born rule — with stripes unless its path is known.
+   */
+  private slitExperiment(dt: number, events: SimEvent[]): boolean {
+    const cond = this.level.winCondition;
+    if (cond.type !== 'light-lamp') return false;
+    this.emitIn -= dt;
+    if (this.emitIn <= 0) {
+      this.emitIn += SLITS.interval;
+      this.particles.push({ id: this.nextParticle++, age: 0, whichPath: null });
+    }
+    let won = false;
+    for (const p of this.particles) {
+      p.age += dt;
+      if (p.whichPath === null && p.age >= SLITS.passage) {
+        // A slit counts as watched if you see its opening or the cells right next to it.
+        const watched = this.slits.filter((s) =>
+          [
+            [0, 0],
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ].some(
+            ([dc, dr]) =>
+              !isSolid(this.map, s.col + dc!, s.row + dr!) && this.sees(s.col + dc!, s.row + dr!),
+          ),
+        );
+        p.whichPath = watched.length > 0;
+        // It went through either slit with equal chance; a watched slit shows it, or
+        // seeing nothing at the only watched slit tells you it took the other one.
+        const took = this.slits[Math.floor(this.rng.next() * this.slits.length)] ?? null;
+        events.push({ type: 'particle-passed', id: p.id, seen: p.whichPath ? took : null });
+      }
+      if (p.age >= SLITS.flight) {
+        const rows = doubleSlitRows({
+          rows: this.screen.length,
+          centre: this.screenCentre(),
+          spacing: cond.spacing,
+          envelope: cond.envelope,
+          whichPath: p.whichPath ?? false,
+        });
+        const cell = this.screen[sampleScreenRow(rows, this.rng)]!;
+        const lamp = cell.lamp === true;
+        if (lamp) this.lampHits++;
+        events.push({ type: 'particle-hit', id: p.id, col: cell.col, row: cell.row, lamp });
+        if (this.lampHits >= cond.hits) won = true;
+      }
+    }
+    this.particles = this.particles.filter((p) => p.age < SLITS.flight);
+    return won;
   }
 
   /**

@@ -15,8 +15,9 @@ import { inspectCell } from '../ui/inspect';
 import { Controls } from '../input/Controls';
 import type { Gaze } from '../input/types';
 import { GazeCone } from '../systems/GazeCone';
-import { LevelSim, type LossReason } from '../systems/LevelSim';
+import { LevelSim, SLITS, type LossReason } from '../systems/LevelSim';
 import { ui } from '../ui';
+import { newBombPanelState, type BombPanelState } from '../ui/BombPanel';
 import { newChshState, type ChshState } from '../ui/ChshPanel';
 import { markCompleted } from '../ui/progress';
 
@@ -46,6 +47,14 @@ export class LevelScene extends Phaser.Scene {
   private qubits: Qubit[] = [];
   private thread: EntanglementThread | null = null;
   private chsh: ChshState | null = null;
+  private bombs: BombPanelState | null = null;
+  /** Two-slit visuals: flight waves and the dots on the screen. */
+  private flight!: Phaser.GameObjects.Graphics;
+  private flights = new Map<number, { seen: { col: number; row: number } | null }>();
+  private hitLayer!: Phaser.GameObjects.Layer;
+  /** Hits per screen cell; the screen glows where particles pile up (the stripes). */
+  private hitCounts = new Map<string, number>();
+  private screenGlow!: Phaser.GameObjects.Graphics;
   private lampViews: LampView[] = [];
   private flowerViews: FlowerView[] = [];
   private coreViews: CoreView[] = [];
@@ -99,6 +108,15 @@ export class LevelScene extends Phaser.Scene {
     this.thread = q0 && q1 ? new EntanglementThread(this, this.worldLayer, q0, q1) : null;
     this.qubits = this.sim.qubits.map((q) => new Qubit(this, this.worldLayer, q));
     this.chsh = this.level.winCondition.type === 'chsh' ? newChshState() : null;
+    this.bombs = this.level.winCondition.type === 'bombs' ? newBombPanelState(this.level) : null;
+    this.flights = new Map();
+    this.hitCounts = new Map();
+    this.screenGlow = this.add.graphics();
+    this.worldLayer.add(this.screenGlow);
+    this.hitLayer = this.add.layer();
+    this.worldLayer.add(this.hitLayer);
+    this.flight = this.add.graphics();
+    this.worldLayer.add(this.flight);
     this.player = new Player(this, this.worldLayer);
     this.controls = new Controls(this, this.uiLayer);
 
@@ -113,6 +131,8 @@ export class LevelScene extends Phaser.Scene {
     const overlay = ui();
     overlay.closeScreen();
     overlay.setHud(this.level);
+    // The HUD is now visible: lay the map out below its real height right away.
+    this.layout();
     overlay.setTimer(this.sim.timeLeft);
     overlay.setGlasses(this.level.glasses ? this.sim.glasses : null);
     overlay.setFocus(this.level.focus ? this.sim.focus : null);
@@ -159,6 +179,13 @@ export class LevelScene extends Phaser.Scene {
         menu: () => this.openMenu(),
       });
     }
+    if (this.bombs) {
+      ui().showBombs(this.level, this.bombs, {
+        won: () => this.onWon(),
+        lost: () => this.onLost('exploded'),
+        menu: () => this.openMenu(),
+      });
+    }
   }
 
   private toggleInspect(): void {
@@ -194,9 +221,76 @@ export class LevelScene extends Phaser.Scene {
     });
   }
 
+  /** A dot where a particle landed; the lamp flashes when hit. */
+  private onParticleHit(col: number, row: number, lamp: boolean): void {
+    const jitter = () => (Math.random() - 0.5) * CELL * 0.7;
+    const dot = this.add.circle(
+      (col + 0.5) * CELL + jitter(),
+      (row + 0.5) * CELL + jitter(),
+      5,
+      COLORS.gaze,
+      0.9,
+    );
+    this.hitLayer.add(dot);
+    const key = `${col},${row}`;
+    this.hitCounts.set(key, (this.hitCounts.get(key) ?? 0) + 1);
+    const max = Math.max(...this.hitCounts.values());
+    const g = this.screenGlow;
+    g.clear();
+    for (const [k, n] of this.hitCounts) {
+      const [c, r] = k.split(',').map(Number) as [number, number];
+      g.fillStyle(COLORS.gaze, 0.45 * (n / max));
+      g.fillRect(c * CELL, r * CELL, CELL, CELL);
+    }
+    if (lamp) this.flashAt(col, row, COLORS.gaze);
+  }
+
+  /**
+   * Particles in flight, drawn as a wave: rings from the torch, then from both
+   * slits — or from just one, if its path was seen.
+   */
+  private drawFlights(): void {
+    const g = this.flight;
+    g.clear();
+    const { source, slits } = this.sim;
+    if (!source) return;
+    // The wave travels from the torch towards the slits and on to the screen.
+    const mid = {
+      x: slits.reduce((a, b) => a + b.col, 0) / Math.max(1, slits.length),
+      y: slits.reduce((a, b) => a + b.row, 0) / Math.max(1, slits.length),
+    };
+    const dir = Math.atan2(mid.y - source.row, mid.x - source.col);
+    const SPREAD = (70 * Math.PI) / 180;
+    for (const p of this.sim.particles) {
+      const known = this.flights.get(p.id);
+      const ring = (c: { col: number; row: number }, r: number, alpha: number) => {
+        g.lineStyle(3, COLORS.ghostHeat, alpha);
+        g.beginPath();
+        g.arc((c.col + 0.5) * CELL, (c.row + 0.5) * CELL, r, dir - SPREAD, dir + SPREAD);
+        g.strokePath();
+      };
+      if (p.age < SLITS.passage) {
+        const reach = Math.hypot(mid.x - source.col, mid.y - source.row) * CELL;
+        ring(source, (p.age / SLITS.passage) * reach, 0.6);
+      } else {
+        const t = (p.age - SLITS.passage) / (SLITS.flight - SLITS.passage);
+        const screen = this.sim.screen[0];
+        const reach = screen
+          ? Math.abs(Math.cos(dir) * (screen.col - mid.x) + Math.sin(dir) * (screen.row - mid.y)) *
+            CELL
+          : 10 * CELL;
+        const from = known?.seen ? [known.seen] : slits;
+        for (const sl of from) ring(sl, t * reach, 0.6 * (1 - t) + 0.2);
+      }
+    }
+  }
+
   /** HUD status: countdown, or the phases of the dark-ring level. */
   private status(): number | string | null {
     const cond = this.level.winCondition;
+    if (cond.type === 'light-lamp') {
+      return `💡 ${this.sim.lampHits}/${cond.hits} · ${Math.ceil(this.sim.timeLeft ?? 0)}`;
+    }
     if (cond.type !== 'zone-after-dark') return this.sim.timeLeft;
     const round = `${this.sim.roundsDone + 1}/${cond.rounds}`;
     if (this.sim.phase === 'dark') return `${round} 🌑 ${Math.ceil(this.sim.darkLeft)}`;
@@ -218,6 +312,10 @@ export class LevelScene extends Phaser.Scene {
       for (const e of events) {
         if (e.type === 'collapsed') this.quantum[e.body]?.flash(e.site);
         else if (e.type === 'flash') this.flashAt(e.col, e.row);
+        else if (e.type === 'particle-passed') {
+          this.flights.set(e.id, { seen: e.seen });
+          if (e.seen) this.flashAt(e.seen.col, e.seen.row, COLORS.gaze);
+        } else if (e.type === 'particle-hit') this.onParticleHit(e.col, e.row, e.lamp);
         else if (e.type === 'detector')
           this.flashAt(e.col, e.row, e.inZone ? COLORS.good : COLORS.bad);
         else if (e.type === 'qubit-changed')
@@ -268,6 +366,7 @@ export class LevelScene extends Phaser.Scene {
     for (const l of this.lampViews) l.render(this.sim.glasses, time);
     for (const f of this.flowerViews) f.render();
     for (const c of this.coreViews) c.render();
+    this.drawFlights();
     this.sim.cameras.forEach((cam, i) =>
       this.cameraCones[i]?.draw(
         cam.cone,
@@ -391,6 +490,16 @@ export class LevelScene extends Phaser.Scene {
         g.fillRect(obj.col * CELL + 1, obj.row * CELL + 1, CELL - 2, CELL - 2);
         this.worldLayer.add(g);
         continue;
+      }
+      if (obj.role === 'screen' || obj.role === 'slit') {
+        const g = this.add.graphics();
+        g.fillStyle(
+          obj.role === 'screen' ? 0x05060c : COLORS.gaze,
+          obj.role === 'screen' ? 0.9 : 0.12,
+        );
+        g.fillRect(obj.col * CELL, obj.row * CELL, CELL, CELL);
+        this.worldLayer.add(g);
+        if (!obj.lamp) continue;
       }
       if (obj.role === 'hot' || obj.role === 'cold') {
         const g = this.add.graphics();

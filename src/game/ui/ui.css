@@ -372,3 +372,39 @@
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + 150px);
   }
 }
+
+.boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.btn.box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 72px;
+  padding: 4px;
+}
+
+.btn.box.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.box-face {
+  font-size: 28px;
+}
+
+.box-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.passes-range {
+  width: 100%;
+  accent-color: var(--accent);
+}

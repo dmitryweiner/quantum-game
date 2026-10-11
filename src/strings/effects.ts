@@ -17,7 +17,9 @@ export type EffectId =
   | 'bell'
   | 'uncertainty'
   | 'tunnelling'
-  | 'decoherence';
+  | 'decoherence'
+  | 'interference'
+  | 'interaction-free';
 
 export interface EffectLink {
   title: string;
@@ -299,6 +301,61 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
       en: [{ title: 'Wikipedia: Quantum decoherence', url: wiki('en', 'Quantum_decoherence') }],
       ru: [
         { title: 'Википедия: Квантовая декогеренция', url: wiki('ru', 'Квантовая_декогеренция') },
+      ],
+    },
+  },
+  interference: {
+    id: 'interference',
+    name: { en: 'Interference and which-path', ru: 'Интерференция и «какой путь»' },
+    summary: {
+      en:
+        'A single particle goes through both slits as a wave, and the two halves add up on the screen — stripes where they reinforce, darkness where they cancel. ' +
+        'Learn which slit it took, by any means, and the halves stop adding: the stripes vanish.',
+      ru:
+        'Одна частица проходит через обе щели как волна, и две половинки складываются на экране: где усиливают друг друга — светлые полосы, где гасят — темнота. ' +
+        'Узнай любым способом, через какую щель она прошла, — и половинки перестают складываться: полосы исчезают.',
+    },
+    links: {
+      en: [
+        { title: 'Wikipedia: Double-slit experiment', url: wiki('en', 'Double-slit_experiment') },
+      ],
+      ru: [
+        { title: 'Википедия: Опыт Юнга', url: wiki('ru', 'Опыт_Юнга') },
+        { title: 'Википедия: Интерференция (физика)', url: wiki('ru', 'Интерференция_(физика)') },
+      ],
+    },
+  },
+  'interaction-free': {
+    id: 'interaction-free',
+    name: { en: 'Interaction-free measurement', ru: 'Измерение без взаимодействия' },
+    summary: {
+      en:
+        'A photon in an interferometer takes both arms at once and always ends in the bright detector. A live bomb in one arm spoils that, ' +
+        'so sometimes the photon reaches the dark detector — proving the bomb is there although the photon never touched it (Elitzur–Vaidman).',
+      ru:
+        'Фотон в интерферометре идёт сразу по обоим плечам и всегда попадает в «светлый» детектор. Живая бомба в одном из плеч это портит, ' +
+        'и иногда фотон попадает в «тёмный» детектор — доказывая, что бомба там, хотя фотон её не касался (Элицур — Вайдман).',
+    },
+    links: {
+      en: [
+        {
+          title: 'Wikipedia: Elitzur–Vaidman bomb tester',
+          url: wiki('en', 'Elitzur–Vaidman_bomb_tester'),
+        },
+        {
+          title: 'Wikipedia: Interaction-free measurement',
+          url: wiki('en', 'Interaction-free_measurement'),
+        },
+      ],
+      ru: [
+        {
+          title: 'Википедия (англ.): тестер бомб Элицура — Вайдмана',
+          url: wiki('en', 'Elitzur–Vaidman_bomb_tester'),
+        },
+        {
+          title: 'Википедия: Интерферометр Маха — Цендера',
+          url: wiki('ru', 'Интерферометр_Маха_—_Цендера'),
+        },
       ],
     },
   },

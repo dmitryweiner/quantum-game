@@ -85,6 +85,27 @@ export class Superposition {
     this.normalize();
   }
 
+  /**
+   * A moving wave packet: a Gaussian blob of width `sigma` around `center`
+   * with wave vector `k` (radians per cell) — it travels in the direction of k.
+   */
+  setWavePacket(
+    center: { x: number; y: number },
+    sigma: number,
+    k: { x: number; y: number },
+  ): void {
+    const { col, row, size } = this.lattice;
+    for (let i = 0; i < size; i++) {
+      const dx = col[i]! - center.x;
+      const dy = row[i]! - center.y;
+      const a = Math.exp(-(dx * dx + dy * dy) / (4 * sigma * sigma));
+      const phase = k.x * dx + k.y * dy;
+      this.re[i] = a * Math.cos(phase);
+      this.im[i] = a * Math.sin(phase);
+    }
+    this.normalize();
+  }
+
   /** Mean position and its spread (cells) — how localized the object is. */
   stats(): { x: number; y: number; spread: number } {
     const { col, row, size } = this.lattice;
@@ -108,8 +129,11 @@ export class Superposition {
     this.re[site] = 1;
   }
 
-  /** Advances the unobserved evolution by `dt` seconds (RK4 sub-steps). */
-  evolve(dt: number): void {
+  /**
+   * Advances the unobserved evolution by `dt` seconds (RK4 sub-steps).
+   * `renormalize: false` keeps a lossy norm (after `absorb`).
+   */
+  evolve(dt: number, renormalize = true): void {
     if (dt <= 0) return;
     // Step small enough for both hopping and the highest barrier.
     let vMax = 0;
@@ -118,7 +142,26 @@ export class Superposition {
     const steps = Math.ceil(dt / maxStep);
     const h = dt / steps;
     for (let s = 0; s < steps; s++) this.rk4(h);
-    this.normalize();
+    if (renormalize) this.normalize();
+  }
+
+  /** Total probability left (1 unless something has been absorbed). */
+  norm(): number {
+    let sum = 0;
+    for (let i = 0; i < this.lattice.size; i++) sum += this.probability(i);
+    return sum;
+  }
+
+  /**
+   * A perfect absorbing detector on these sites: removes their amplitude and
+   * returns the probability it caught, per site (not renormalized).
+   */
+  absorb(sites: readonly number[]): number[] {
+    return sites.map((i) => {
+      const p = this.probability(i);
+      this.re[i] = this.im[i] = 0;
+      return p;
+    });
   }
 
   /**

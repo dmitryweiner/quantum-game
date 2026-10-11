@@ -6,6 +6,7 @@ import { EFFECTS, type EffectId } from '../../strings/effects';
 import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
 import { h, type Child } from './dom';
+import { bombPanel, type BombPanelState } from './BombPanel';
 import { chshPanel, type ChshState } from './ChshPanel';
 import type { InspectInfo } from './inspect';
 import { completedLevels } from './progress';
@@ -394,6 +395,7 @@ export class Ui {
       'wrong-colour': [T().lostWrongColour, T().lostWrongColourText],
       escaped: [T().lostEscaped, T().lostEscapedText],
       core: [T().lostCore, T().lostCoreText],
+      exploded: [T().lostBombs, T().lostBombsText],
     }[reason];
     this.open(
       [h('h1', {}, text[0]), h('p', {}, text[1])],
@@ -426,6 +428,31 @@ export class Ui {
       [{ label: T().menu, cancel: true, run: on.menu }],
       show,
       'chsh',
+    );
+  }
+
+  /** The bomb-testing lab table; `state` keeps the boxes across redraws. */
+  showBombs(
+    level: LevelDef,
+    state: BombPanelState,
+    on: { won: () => void; lost: () => void; menu: () => void },
+  ): void {
+    const show = () => this.showBombs(level, state, on);
+    this.open(
+      [
+        h('h1', {}, tr(level.title)),
+        bombPanel(level, state, {
+          rerender: () => {
+            if (this.screenName === 'bombs') show();
+          },
+          won: on.won,
+          lost: on.lost,
+        }),
+        this.effectsLink(level, show),
+      ],
+      [{ label: T().menu, cancel: true, run: on.menu }],
+      show,
+      'bombs',
     );
   }
 

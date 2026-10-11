@@ -35,6 +35,13 @@ describe('level definitions', () => {
           case 'chsh':
             expect(level.winCondition.threshold).toBeGreaterThan(0.75);
             break;
+          case 'light-lamp':
+            expect(has('source') && has('slit') && has('screen')).toBe(true);
+            expect(map.objects.some((o) => o.lamp)).toBe(true);
+            break;
+          case 'bombs':
+            expect(level.winCondition.bombs).toBeLessThan(level.winCondition.boxes);
+            break;
           case 'escape':
             expect(has('core') && has('exit')).toBe(true);
             break;
@@ -324,6 +331,22 @@ describe('chapter 4 playtest', () => {
     for (let s = 0; s < 40; s++) if (remoteEye('always', s) === 'won') wins++;
     for (let s = 0; s < 40; s++) if (remoteEye('never', s) === 'won') wins++;
     expect(wins / 80).toBeLessThan(0.1);
+  });
+});
+
+describe('chapter 5 playtest', () => {
+  const level = LEVELS.find((l) => l.id === 'ch5-01')!;
+  const slit = (sim: LevelSim) => {
+    const s = sim.slits.reduce((a, b) => (b.row > a.row ? b : a));
+    return { x: s.col + 0.5, y: s.row + 0.5 };
+  };
+
+  it('ch5-01: watching a slit lights the lamp', () => {
+    expect(winRate(level, (_t, sim) => slit(sim), 100, 60)).toBeGreaterThan(0.6);
+  });
+
+  it('ch5-01: with both paths open the dark stripe stays dark', () => {
+    expect(winRate(level, () => null, 100, 60)).toBeLessThan(0.05);
   });
 });
 

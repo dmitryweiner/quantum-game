@@ -24,6 +24,8 @@ export type TileKind = 'floor' | 'wall' | 'glass' | 'barrier';
  * - `hot` / `cold`: the environment measures objects on hot cells now and then.
  * - `core`: an unstable core that decays unless watched (Zeno).
  * - `exit`: walk here to finish an 'escape' level.
+ * - `source` / `slit` / `screen`: a two-slit experiment; a `screen` cell with
+ *   `lamp` lights up when a particle lands on it.
  * - `decor`: just a picture.
  */
 export type ObjectRole =
@@ -40,6 +42,9 @@ export type ObjectRole =
   | 'cold'
   | 'core'
   | 'exit'
+  | 'source'
+  | 'slit'
+  | 'screen'
   | 'decor';
 
 /** Glasses: Z shows 🔴/🔵, X shows 🟢/🟠. */
@@ -50,6 +55,8 @@ export interface MapObject {
   role: ObjectRole;
   /** For `qubit`: which side of the pair. */
   side?: 0 | 1;
+  /** For `screen`: this cell is the lamp to light. */
+  lamp?: true;
   /** For `camera`: viewing direction, radians (0 = right, y down). */
   facing?: number;
   /** For `quantum`: start as a wave packet of this width (cells) instead of one cell. */
@@ -102,6 +109,10 @@ export const LEGEND: Readonly<Record<string, LegendEntry>> = {
   R: { tile: 'floor', object: { role: 'decor', emoji: '🤖' } },
   J: { tile: 'floor', object: { role: 'decor', emoji: '🧑‍⚖️' } },
   '%': { tile: 'barrier' },
+  S: { tile: 'floor', object: { role: 'source', emoji: '🔦' } },
+  Y: { tile: 'floor', object: { role: 'slit', emoji: '' } },
+  Z: { tile: 'floor', object: { role: 'screen', emoji: '' } },
+  l: { tile: 'floor', object: { role: 'screen', emoji: '💡', lamp: true } },
   n: { tile: 'floor', object: { role: 'core', emoji: '☢️' } },
   x: { tile: 'floor', object: { role: 'exit', emoji: '🏁' } },
   s: { tile: 'floor', object: { role: 'switch', emoji: '🔘' } },

@@ -1,5 +1,14 @@
 import { locale, type Locale } from '../i18n';
 
+/** Russian noun form for a count: 1 круг, 2 круга, 5 кругов. */
+function ruPlural(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
 const EN = {
   title: 'Quantum Game',
   tagline: 'You are the observer. Looking changes things.',
@@ -9,6 +18,7 @@ const EN = {
     2: 'Spooky Action',
     3: 'Uncertainty',
     4: 'Other Observers',
+    5: 'Interference',
   } as Record<number, string>,
   sandbox: 'Sandbox',
   sandboxNote: 'Free play, no goal',
@@ -26,6 +36,8 @@ const EN = {
     unlock: 'Unlocked! 🔓',
     'zone-after-dark': 'Still in the ring! 🎉',
     escape: 'Out, core intact! 🏁',
+    'light-lamp': 'The lamp is lit! 💡',
+    bombs: 'Bombs sorted safely! 💣',
     chsh: 'Telepathy confirmed! 🎉',
   },
   lost: 'Time’s up ⏳',
@@ -43,6 +55,34 @@ const EN = {
   lostCore: 'The core decayed 💥',
   lostCoreText:
     'Left unwatched, the core slid towards decay — and a look found it gone. Keep it in sight the whole time; brief glances away are fine.',
+  lostBombs: 'Too many explosions 💥',
+  lostBombsText:
+    'The live bombs went off before you could prove one safely. Try again — the boxes are reshuffled.',
+  bombs: {
+    table:
+      'Interferometer: 🔦 → beam splitter → two arms (one through the box) → beam splitter → detectors 🟢 bright / 🔴 dark',
+    tableZeno:
+      'Zeno tester: the photon goes round N times, nudged a little towards the box arm on each pass, then hits ⚪ “empty” or 💣 “bomb”.',
+    box: (i: number) => `Box ${i + 1}`,
+    unknown: '❓',
+    test: '🔦 Fire a photon',
+    testZeno: (n: number) => `🔦 Test with ${n} ${n === 1 ? 'pass' : 'passes'}`,
+    open: '👀 Open the box',
+    passes: (n: number) => `Passes N = ${n}`,
+    survival: (p: string) => `A live bomb stays safe with chance ${p}`,
+    result: {
+      boom: '💥 Boom! It was a live bomb.',
+      bright: '🟢 Bright detector — tells you nothing yet.',
+      dark: '🔴 Dark detector! A live bomb — proven without touching it.',
+      bomb: '💣 “Bomb” — a live bomb, found safely.',
+      empty: '⚪ “Empty” — no bomb in this box.',
+      'opened-empty': '📦 Opened: empty.',
+    } as Record<string, string>,
+    progressProve: (proven: number) => `Proven live bombs: ${proven} / 1`,
+    progressSort: (sorted: number, total: number, booms: number, max: number) =>
+      `Sorted: ${sorted} / ${total} · explosions: ${booms} / ${max}`,
+    pick: 'Pick a box',
+  },
   lightsOut: '🌑 Lights out',
   focusLabel: 'Focus of your look',
   focusBlurry: '☁️ blurry',
@@ -121,6 +161,17 @@ const EN = {
       'Unwatched, it slides towards decay. Each look finds it intact (most likely) and resets the slide — watched constantly, it never gets started (the quantum Zeno effect).',
     exitName: 'Exit 🏁',
     exitWhy: 'Walk here to leave. The cores get one last look when you arrive.',
+    sourceName: 'Torch 🔦',
+    sourceWhy: 'Fires one particle at a time towards the two slits.',
+    slitName: 'Slit',
+    slitWhy:
+      'Look here while a particle passes and you learn which way it went. A particle with a known path cannot interfere with itself — its stripes vanish.',
+    screenName: 'Screen',
+    screenWhy:
+      'Each particle leaves a dot where it lands. One by one, the dots draw the stripes of a wave.',
+    screenLampName: 'Lamp on the screen 💡',
+    screenLampWhy:
+      'It sits in a dark stripe: the waves from the two slits cancel here, so with both paths open nothing lands on it.',
     playerName: 'You, the observer 👁️',
     playerWhy: 'Your look is a measurement. Close your eyes and things stop being definite.',
     percent: (p: number) => `${Math.round(p * 100)}%`,
@@ -165,6 +216,7 @@ const RU: Strings = {
     2: 'Жуткое дальнодействие',
     3: 'Неопределённость',
     4: 'Чужие наблюдатели',
+    5: 'Интерференция',
   },
   sandbox: 'Песочница',
   sandboxNote: 'Свободная игра без цели',
@@ -182,6 +234,8 @@ const RU: Strings = {
     unlock: 'Открыто! 🔓',
     'zone-after-dark': 'Атом в кольце! 🎉',
     escape: 'Выбрался, ядро цело! 🏁',
+    'light-lamp': 'Лампа горит! 💡',
+    bombs: 'Бомбы найдены без риска! 💣',
     chsh: 'Телепатия подтверждена! 🎉',
   },
   lost: 'Время вышло ⏳',
@@ -200,6 +254,34 @@ const RU: Strings = {
   lostCore: 'Ядро распалось 💥',
   lostCoreText:
     'Без присмотра ядро скатилось к распаду, и взгляд застал его уже распавшимся. Держи его в поле зрения всё время; короткие отлучки не страшны.',
+  lostBombs: 'Слишком много взрывов 💥',
+  lostBombsText:
+    'Живые бомбы взорвались раньше, чем ты успел безопасно доказать хоть одну. Попробуй ещё — коробки перемешаны заново.',
+  bombs: {
+    table:
+      'Интерферометр: 🔦 → светоделитель → два плеча (одно через коробку) → светоделитель → детекторы 🟢 светлый / 🔴 тёмный',
+    tableZeno:
+      'Тестер с Зеноном: фотон проходит круг N раз, каждый раз чуть сдвигаясь к плечу с коробкой, а затем попадает в ⚪ «пусто» или 💣 «бомба».',
+    box: (i: number) => `Коробка ${i + 1}`,
+    unknown: '❓',
+    test: '🔦 Выпустить фотон',
+    testZeno: (n: number) => `🔦 Проверить за ${n} ${ruPlural(n, 'круг', 'круга', 'кругов')}`,
+    open: '👀 Открыть коробку',
+    passes: (n: number) => `Кругов N = ${n}`,
+    survival: (p: string) => `Живая бомба уцелеет с вероятностью ${p}`,
+    result: {
+      boom: '💥 Бум! Это была живая бомба.',
+      bright: '🟢 Светлый детектор — пока ничего не известно.',
+      dark: '🔴 Тёмный детектор! Живая бомба — доказано без касания.',
+      bomb: '💣 «Бомба» — живая бомба, найдена без риска.',
+      empty: '⚪ «Пусто» — в этой коробке бомбы нет.',
+      'opened-empty': '📦 Открыта: пусто.',
+    } as Record<string, string>,
+    progressProve: (proven: number) => `Доказано живых бомб: ${proven} / 1`,
+    progressSort: (sorted: number, total: number, booms: number, max: number) =>
+      `Разобрано: ${sorted} / ${total} · взрывов: ${booms} / ${max}`,
+    pick: 'Выбери коробку',
+  },
   lightsOut: '🌑 Свет погас',
   focusLabel: 'Фокус взгляда',
   focusBlurry: '☁️ размыто',
@@ -278,6 +360,17 @@ const RU: Strings = {
       'Без присмотра ядро скатывается к распаду. Каждый взгляд (скорее всего) застаёт его целым и обнуляет этот путь; под постоянным взглядом распад так и не начинается (квантовый эффект Зенона).',
     exitName: 'Выход 🏁',
     exitWhy: 'Дойди сюда, чтобы выйти. На выходе ядра проверят в последний раз.',
+    sourceName: 'Фонарь 🔦',
+    sourceWhy: 'Выпускает частицы по одной в сторону двух щелей.',
+    slitName: 'Щель',
+    slitWhy:
+      'Смотри сюда, пока пролетает частица, — и узнаешь, каким путём она шла. Частица с известным путём не может интерферировать сама с собой — её полосы исчезают.',
+    screenName: 'Экран',
+    screenWhy:
+      'Каждая частица оставляет точку там, куда попала. Точка за точкой они рисуют полосы волны.',
+    screenLampName: 'Лампа на экране 💡',
+    screenLampWhy:
+      'Она стоит в тёмной полосе: волны от двух щелей здесь гасят друг друга, и пока открыты оба пути, сюда ничего не попадает.',
     playerName: 'Ты, наблюдатель 👁️',
     playerWhy: 'Твой взгляд — это измерение. Закрой глаза, и всё перестаёт быть определённым.',
     percent: (p: number) => `${Math.round(p * 100)}%`,

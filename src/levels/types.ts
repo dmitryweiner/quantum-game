@@ -13,6 +13,28 @@ export type WinCondition =
    * Must succeed `rounds` times in a row.
    */
   | { type: 'zone-after-dark'; look: number; dark: number; rounds: number }
+  /**
+   * Two-slit experiment: particles fly from the source through the slits to
+   * the screen, one every second; land `hits` of them on the lamp. Stripes
+   * are `spacing` rows apart under an envelope `envelope` rows wide.
+   */
+  | { type: 'light-lamp'; hits: number; spacing: number; envelope: number }
+  /**
+   * Elitzur–Vaidman bomb testing at a lab table (a panel): `boxes` boxes, of
+   * which `bombs` hold live bombs. 'prove-one': prove at least one live bomb
+   * without setting it off (one photon per test). 'sort-all': sort every box
+   * with at most `maxBooms` explosions, using Zeno tests with up to
+   * `maxPasses` passes.
+   */
+  | { type: 'bombs'; mode: 'prove-one'; boxes: number; bombs: number }
+  | {
+      type: 'bombs';
+      mode: 'sort-all';
+      boxes: number;
+      bombs: number;
+      maxBooms: number;
+      maxPasses: number;
+    }
   /** Reach the exit 🏁; every core ☢️ must still be intact when checked there. */
   | { type: 'escape' }
   /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */

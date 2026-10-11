@@ -119,6 +119,22 @@ export function inspectCell(sim: LevelSim, col: number, row: number): InspectInf
   }
 
   const obj = sim.map.objects.find((o) => at(o) && o.role !== 'quantum' && o.role !== 'zone');
+  if (obj?.role === 'source') {
+    return { title: s.sourceName, state: [], why: s.sourceWhy, effects: ['interference'] };
+  }
+  if (obj?.role === 'slit') {
+    return { title: s.slitName, state: [], why: s.slitWhy, effects: ['interference', 'collapse'] };
+  }
+  if (obj?.role === 'screen') {
+    return obj.lamp
+      ? { title: s.screenLampName, state: [], why: s.screenLampWhy, effects: ['interference'] }
+      : {
+          title: s.screenName,
+          state: [],
+          why: s.screenWhy,
+          effects: ['interference', 'born-rule'],
+        };
+  }
   if (obj?.role === 'switch') {
     return { title: s.switchName, state: [], why: s.switchWhy, effects: ['decoherence'] };
   }
