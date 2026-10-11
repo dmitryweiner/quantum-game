@@ -11,9 +11,13 @@ export type TileKind = 'floor' | 'wall' | 'glass';
  * - `target`: a cell where a quantum object must be caught (the door).
  * - `qubit`: one ball of the entangled pair (side 0 near, side 1 far).
  * - `plate`: a pressure plate; stepping on it tries the lock with its colour.
+ * - `lamp`: a single qubit, on/off (Z) or 🌓/🌗 (X).
+ * - `flower`: a two-level system that blooms by itself unless watched (Zeno).
+ * - `zone`: a cell of the ring the atom must stay in.
  * - `decor`: just a picture.
  */
-export type ObjectRole = 'quantum' | 'target' | 'qubit' | 'plate' | 'decor';
+export type ObjectRole =
+  'quantum' | 'target' | 'qubit' | 'plate' | 'lamp' | 'flower' | 'zone' | 'decor';
 
 /** Glasses: Z shows 🔴/🔵, X shows 🟢/🟠. */
 export type Basis = 'Z' | 'X';
@@ -23,6 +27,8 @@ export interface MapObject {
   role: ObjectRole;
   /** For `qubit`: which side of the pair. */
   side?: 0 | 1;
+  /** For `quantum`: start as a wave packet of this width (cells) instead of one cell. */
+  spread?: number;
   /** For `plate`: the colour it asks the lock to check. */
   plate?: { basis: Basis; outcome: 0 | 1 };
   /** Emoji used as the sprite. */
@@ -54,8 +60,12 @@ export const LEGEND: Readonly<Record<string, LegendEntry>> = {
   c: { tile: 'floor', object: { role: 'quantum', emoji: '🐱' } },
   D: { tile: 'floor', object: { role: 'target', emoji: '🚪' } },
   k: { tile: 'floor', object: { role: 'decor', emoji: '🔑' } },
-  L: { tile: 'floor', object: { role: 'decor', emoji: '💡' } },
-  a: { tile: 'floor', object: { role: 'decor', emoji: '⚛️' } },
+  L: { tile: 'floor', object: { role: 'lamp', emoji: '💡' } },
+  a: { tile: 'floor', object: { role: 'quantum', emoji: '⚛️', spread: 2 } },
+  A: { tile: 'floor', object: { role: 'quantum', emoji: '⚛️', spread: 3 } },
+  u: { tile: 'floor', object: { role: 'zone', emoji: '' } },
+  T: { tile: 'floor', object: { role: 'target', emoji: '🎯' } },
+  f: { tile: 'floor', object: { role: 'flower', emoji: '🌱' } },
   p: { tile: 'floor', object: { role: 'decor', emoji: '🪴' } },
   e: { tile: 'floor', object: { role: 'qubit', emoji: '⚪', side: 0 } },
   E: { tile: 'floor', object: { role: 'qubit', emoji: '⚪', side: 1 } },

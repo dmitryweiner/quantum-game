@@ -14,7 +14,8 @@ export type EffectId =
   | 'zeno'
   | 'entanglement'
   | 'complementarity'
-  | 'bell';
+  | 'bell'
+  | 'uncertainty';
 
 export interface EffectLink {
   title: string;
@@ -238,6 +239,30 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
       ru: [
         { title: 'Википедия: Теорема Белла', url: wiki('ru', 'Теорема_Белла') },
         { title: 'Википедия: Неравенства Белла', url: wiki('ru', 'Неравенства_Белла') },
+      ],
+    },
+  },
+  uncertainty: {
+    id: 'uncertainty',
+    name: { en: 'Heisenberg’s uncertainty principle', ru: 'Принцип неопределённости Гейзенберга' },
+    summary: {
+      en:
+        'Position and speed cannot both be sharp. Squeeze where an object is, and its speed becomes wildly uncertain — it bursts apart; ' +
+        'leave its position vague, and its speed stays calm. A sharp look is a hard kick, a blurry look a gentle one.',
+      ru:
+        'Положение и скорость не бывают одновременно точными. Сожми объект в точку — и его скорость станет совсем неопределённой, он разлетится; ' +
+        'оставь положение размытым — и скорость останется спокойной. Острый взгляд — сильный пинок, размытый — лёгкое касание.',
+    },
+    links: {
+      en: [
+        { title: 'Wikipedia: Uncertainty principle', url: wiki('en', 'Uncertainty_principle') },
+        { title: 'Wikipedia: Heisenberg’s microscope', url: wiki('en', "Heisenberg's_microscope") },
+      ],
+      ru: [
+        {
+          title: 'Википедия: Принцип неопределённости',
+          url: wiki('ru', 'Принцип_неопределённости'),
+        },
       ],
     },
   },

@@ -161,6 +161,65 @@ describe('chapter 2 playtest', () => {
   });
 });
 
+describe('chapter 3 playtest', () => {
+  const ch3 = (id: string) => LEVELS.find((l) => l.id === id)!;
+  const atomAt = (sim: LevelSim) => {
+    const a = sim.bodies[0]!.def;
+    return { x: a.col + 0.5, y: a.row + 0.5 };
+  };
+
+  /** Glance at the atom with `focus` (quick looks) until one lands, then look away. */
+  const kick = (focus: number, until: number): Strategy => {
+    let done = false;
+    return (t, sim) => {
+      if (t === 0) done = false;
+      sim.setFocus(focus);
+      const a = atomAt(sim);
+      sim.player = { x: a.x + 6, y: a.y + 2 };
+      if (sim.bodies[0]!.psi.definiteSite() >= 0 && t > 0) done = true;
+      return !done && t < until && t % 0.27 < 0.02 ? a : null;
+    };
+  };
+
+  it('ch3-01: one sharp kick beats a blurry one or none by far', () => {
+    const sharp = winRate(ch3('ch3-01'), kick(1, 3), 120, 30);
+    const blurry = winRate(ch3('ch3-01'), kick(0, 3), 120, 30);
+    const none = winRate(ch3('ch3-01'), () => null, 60, 30);
+    expect(sharp).toBeGreaterThan(0.3);
+    expect(blurry).toBeLessThan(sharp / 2.5);
+    expect(none).toBeLessThan(0.15);
+  });
+
+  const softTouch = (focus: number) => {
+    let wins = 0;
+    const runs = 60;
+    for (let seed = 0; seed < runs; seed++) {
+      const sim = new LevelSim(ch3('ch3-02'), mulberry32(seed));
+      sim.setFocus(focus);
+      // Walk up to the atom first (path finding is not what this tests).
+      const a = atomAt(sim);
+      sim.player = { x: a.x, y: a.y + 6 };
+      while (sim.status === 'playing' && sim.time < 60) {
+        sim.step(1 / 30, { x: 0, y: 0 }, sim.phase === 'look' ? atomAt(sim) : null);
+      }
+      if (sim.status === 'won') wins++;
+    }
+    return wins / runs;
+  };
+
+  it('ch3-02: a blurry look keeps the atom in the ring', { timeout: 120_000 }, () => {
+    const rate = softTouch(0);
+    console.log('ch3-02 blurry', rate);
+    expect(rate).toBeGreaterThan(0.38);
+  });
+
+  it('ch3-02: a sharp look kicks it out', { timeout: 120_000 }, () => {
+    const rate = softTouch(1);
+    console.log('ch3-02 sharp', rate);
+    expect(rate).toBeLessThan(0.22);
+  });
+});
+
 describe('chapter 1 playtest', () => {
   for (const level of LEVELS.filter((l) => l.chapter === 1)) {
     const door = doorOf(level);

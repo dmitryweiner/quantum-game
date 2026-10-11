@@ -1,18 +1,9 @@
 import Phaser from 'phaser';
 import type { MapObject } from '../../levels/map';
-import { X_ANGLE, type EntangledPair } from '../../quantum/entangled';
+import type { EntangledPair } from '../../quantum/entangled';
+import { qubitEmoji } from '../systems/looks';
 import { CELL, COLORS } from '../constants';
 import { emojiTexture } from '../emoji';
-
-/** Ball colours: Z glasses show red/blue, X glasses green/orange. */
-const COLOURS = { Z: ['🔴', '🔵'], X: ['🟢', '🟠'] } as const;
-
-/** The ball's emoji for what is known about it, or ⚪ while it has no colour. */
-export function qubitEmoji(pair: EntangledPair, side: 0 | 1): string {
-  const s = pair.local[side];
-  if (!s) return '⚪';
-  return COLOURS[Math.abs(s.angle - X_ANGLE) < 1e-9 ? 'X' : 'Z'][s.outcome];
-}
 
 /** One ball of an entangled pair. */
 export class Qubit {

@@ -20,6 +20,9 @@ export const COLORS = {
   ghostHeat: 0xb48cff,
   collapse: 0xffffff,
   target: 0xffcf7a,
+  zone: 0x8ef0a8,
+  good: 0x8ef0a8,
+  bad: 0xff6b6b,
   joystickBase: 0xffffff,
   joystickKnob: 0x7fd4ff,
 } as const;

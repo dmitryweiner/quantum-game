@@ -7,6 +7,12 @@ export type WinCondition =
   | { type: 'catch-at-target' }
   /** Step on the plate whose colour matches the far ball, as the lock measures it. */
   | { type: 'unlock' }
+  /**
+   * Watch the atom for `look` seconds, then the lights go out for `dark`
+   * seconds; a detector then checks that the atom is still in the ring.
+   * Must succeed `rounds` times in a row.
+   */
+  | { type: 'zone-after-dark'; look: number; dark: number; rounds: number }
   /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */
   | { type: 'chsh'; rounds: number; threshold: number };
 
@@ -34,4 +40,10 @@ export interface LevelDef {
   hopRate?: number;
   /** The player can switch glasses between Z and X. */
   glasses?: boolean;
+  /** The player can change how sharp (narrow) or blurry (wide) the look is. */
+  focus?: boolean;
+  /** Show only this many central cells (the rest of a big room is off-screen). */
+  view?: { cols: number; rows: number };
+  /** Targets are automatic detectors that click this many times per second at most. */
+  detectorRate?: number;
 }

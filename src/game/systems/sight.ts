@@ -60,3 +60,27 @@ export function castRay(
   }
   return maxDist;
 }
+
+/**
+ * How well a cell is seen, from 0 to 1, with soft edges `soft` cells wide —
+ * a blurry look has no sharp border. Walls still block it completely.
+ */
+export function cellVisibility(
+  cone: Cone,
+  col: number,
+  row: number,
+  blocks: SightBlocker,
+  soft: number,
+): number {
+  const c = { x: col + 0.5, y: row + 0.5 };
+  const dx = c.x - cone.origin.x;
+  const dy = c.y - cone.origin.y;
+  const dist = Math.hypot(dx, dy);
+  const outOfRange = Math.max(0, dist - cone.range);
+  const outOfAngle =
+    dist > 0.5 ? Math.max(0, angleDiff(Math.atan2(dy, dx), cone.angle) - cone.halfAngle) * dist : 0;
+  const excess = Math.hypot(outOfRange, outOfAngle);
+  if (excess > 3 * soft) return 0;
+  if (!lineOfSight(cone.origin, c, blocks)) return 0;
+  return Math.exp(-((excess / soft) ** 2));
+}

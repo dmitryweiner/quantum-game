@@ -5,6 +5,8 @@ import type { QuantumBody } from '../systems/LevelSim';
 
 /** Below this probability a ghost is not drawn at all. */
 const MIN_P = 0.003;
+/** ...nor below this fraction of the brightest ghost. */
+const MIN_REL = 0.12;
 
 /**
  * Renders a quantum object: one solid sprite when it is definite, or a
@@ -46,21 +48,24 @@ export class QuantumObject {
     for (let i = 0; i < lattice.size; i++) {
       const img = this.ghosts[i]!;
       const pi = p[i]!;
-      if (pi < MIN_P) {
+      const rel = pi / pMax;
+      // Faint ghosts of a wide cloud would bury everything else: skip them.
+      if (pi < MIN_P || rel < MIN_REL) {
         img.setVisible(false);
         continue;
       }
-      const rel = pi / pMax;
       const x = (lattice.col[i]! + 0.5) * CELL;
       const y = (lattice.row[i]! + 0.5) * CELL;
       if (definite) {
-        img.setVisible(true).setAlpha(1).setPosition(x, y);
+        img.setVisible(true).setAlpha(1).setPosition(x, y).setDisplaySize(this.size, this.size);
         continue;
       }
       // Fainter ghosts shimmer more.
       const wobble = (1 - rel) * 3;
+      const size = this.size * (0.55 + 0.45 * rel);
       img
         .setVisible(true)
+        .setDisplaySize(size, size)
         .setAlpha(0.2 + 0.6 * rel)
         .setPosition(
           x + Math.sin(time * 0.009 + i * 1.7) * wobble,

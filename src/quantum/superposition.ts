@@ -1,9 +1,12 @@
 import type { Lattice } from './lattice';
-import { pickWeighted, type Rng } from './rng';
+import { gaussian, pickWeighted, type Rng } from './rng';
 
 /** Outcome of looking at a region of the lattice. */
 export type MeasureOutcome =
-  /** The object was seen at this site; the state is now that site only. */
+  /**
+   * The object was seen. A sharp look leaves it on `site` only; a blurry
+   * look leaves a packet around the reading, with `site` its likeliest cell.
+   */
   | { kind: 'found'; site: number }
   /** The object was not in the region; its amplitude there is gone. */
   | { kind: 'absent' }
@@ -66,6 +69,33 @@ export class Superposition {
     return -1;
   }
 
+  /** A wave packet at rest: a Gaussian blob of width `sigma` cells around `center`. */
+  setGaussian(center: { x: number; y: number }, sigma: number): void {
+    const { col, row, size } = this.lattice;
+    for (let i = 0; i < size; i++) {
+      const d2 = (col[i]! - center.x) ** 2 + (row[i]! - center.y) ** 2;
+      this.re[i] = Math.exp(-d2 / (4 * sigma * sigma));
+      this.im[i] = 0;
+    }
+    this.normalize();
+  }
+
+  /** Mean position and its spread (cells) — how localized the object is. */
+  stats(): { x: number; y: number; spread: number } {
+    const { col, row, size } = this.lattice;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < size; i++) {
+      const p = this.probability(i);
+      x += p * col[i]!;
+      y += p * row[i]!;
+    }
+    let v = 0;
+    for (let i = 0; i < size; i++)
+      v += this.probability(i) * ((col[i]! - x) ** 2 + (row[i]! - y) ** 2);
+    return { x, y, spread: Math.sqrt(v) };
+  }
+
   collapseTo(site: number): void {
     if (site < 0 || site >= this.lattice.size) throw new Error(`collapseTo: bad site ${site}`);
     this.re.fill(0);
@@ -86,8 +116,14 @@ export class Superposition {
   /**
    * Looks at the sites for which `seen[i]` is true.
    * Probabilities follow the Born rule; see the class comment.
+   *
+   * `blur` is the resolution of this single look in cells. 0 is a sharp
+   * look (collapse onto one cell). A blurry look is a Gaussian position
+   * measurement: the reading is the true cell plus noise of width `blur`,
+   * and the state is multiplied by a Gaussian of that width around the
+   * reading — the less precise the look, the gentler its kick.
    */
-  measure(seen: ArrayLike<boolean>, rng: Rng): MeasureOutcome {
+  measure(seen: ArrayLike<boolean>, rng: Rng, blur = 0): MeasureOutcome {
     const n = this.lattice.size;
     let pSeen = 0;
     const weights = new Array<number>(n);
@@ -104,10 +140,81 @@ export class Superposition {
     }
     if (rng.next() < pSeen) {
       const site = pickWeighted(rng, weights);
-      this.collapseTo(site);
-      return { kind: 'found', site };
+      if (blur <= 0) {
+        this.collapseTo(site);
+        return { kind: 'found', site };
+      }
+      const { col, row } = this.lattice;
+      const rx = col[site]! + blur * gaussian(rng);
+      const ry = row[site]! + blur * gaussian(rng);
+      let best = site;
+      for (let i = 0; i < n; i++) {
+        if (!seen[i]) {
+          this.re[i] = this.im[i] = 0;
+          continue;
+        }
+        const k = Math.exp(-((col[i]! - rx) ** 2 + (row[i]! - ry) ** 2) / (4 * blur * blur));
+        this.re[i]! *= k;
+        this.im[i]! *= k;
+      }
+      this.normalize();
+      for (let i = 0; i < n; i++) if (this.probability(i) > this.probability(best)) best = i;
+      return { kind: 'found', site: best };
     }
     for (let i = 0; i < n; i++) if (seen[i]) this.re[i] = this.im[i] = 0;
+    this.normalize();
+    return { kind: 'absent' };
+  }
+
+  /**
+   * A blurry look: photons arrive at random, each with probability
+   * `pDetect`·w(x) per call for an object at x, where w ∈ [0, 1] is how
+   * well the observer sees that cell (soft-edged view). A detected photon
+   * tells the position only to within `blur` cells: the state is multiplied
+   * by √w and by a Gaussian of width `blur` around the reading. No photon
+   * is a (very weak) negative result: the state is multiplied by √(1 − p·w).
+   * Both are a proper measurement, so probabilities stay Born-rule exact.
+   */
+  measureSoft(
+    visibility: ArrayLike<number>,
+    pDetect: number,
+    blur: number,
+    rng: Rng,
+  ): MeasureOutcome {
+    const n = this.lattice.size;
+    const { col, row } = this.lattice;
+    const weights = new Array<number>(n);
+    let pFound = 0;
+    for (let i = 0; i < n; i++) {
+      const w = (visibility[i] ?? 0) * this.probability(i);
+      weights[i] = w;
+      pFound += w;
+    }
+    if (pFound < 1e-12) return { kind: 'none' };
+    if (rng.next() < pDetect * pFound) {
+      const site = pickWeighted(rng, weights);
+      if (blur <= 0) {
+        this.collapseTo(site);
+        return { kind: 'found', site };
+      }
+      const rx = col[site]! + blur * gaussian(rng);
+      const ry = row[site]! + blur * gaussian(rng);
+      for (let i = 0; i < n; i++) {
+        const g = Math.exp(-((col[i]! - rx) ** 2 + (row[i]! - ry) ** 2) / (4 * blur * blur));
+        const k = Math.sqrt(visibility[i] ?? 0) * g;
+        this.re[i]! *= k;
+        this.im[i]! *= k;
+      }
+      this.normalize();
+      let best = site;
+      for (let i = 0; i < n; i++) if (this.probability(i) > this.probability(best)) best = i;
+      return { kind: 'found', site: best };
+    }
+    for (let i = 0; i < n; i++) {
+      const k = Math.sqrt(Math.max(0, 1 - pDetect * (visibility[i] ?? 0)));
+      this.re[i]! *= k;
+      this.im[i]! *= k;
+    }
     this.normalize();
     return { kind: 'absent' };
   }

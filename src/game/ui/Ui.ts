@@ -1,11 +1,13 @@
 import { LEVELS } from '../../levels';
 import type { Basis } from '../../levels/map';
 import type { LevelDef } from '../../levels/types';
+import type { LossReason } from '../systems/LevelSim';
 import { EFFECTS, type EffectId } from '../../strings/effects';
 import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
 import { h, type Child } from './dom';
 import { chshPanel, type ChshState } from './ChshPanel';
+import type { InspectInfo } from './inspect';
 import { completedLevels } from './progress';
 import './ui.css';
 
@@ -23,6 +25,9 @@ export class Ui {
   private hudLevel: LevelDef | null = null;
   private readonly langButton: HTMLButtonElement;
   private readonly glassesButton: HTMLButtonElement;
+  private readonly inspectButton: HTMLButtonElement;
+  private readonly focusBox: HTMLElement;
+  private readonly focusInput: HTMLInputElement;
   private glassesMode: Basis | null = null;
   /** Name of the open panel, so background updates only redraw their own panel. */
   private screenName = '';
@@ -36,6 +41,8 @@ export class Ui {
     restart: () => {},
     info: () => {},
     glasses: () => {},
+    focus: (_value: number) => {},
+    inspect: () => {},
   };
 
   constructor() {
@@ -48,6 +55,27 @@ export class Ui {
       onclick: () => this.handlers.glasses(),
     });
     this.glassesButton.hidden = true;
+    this.inspectButton = h(
+      'button',
+      { class: 'icon-btn', onclick: () => this.handlers.inspect() },
+      '🔍',
+    );
+    this.focusInput = h('input', {
+      type: 'range',
+      min: '0',
+      max: '1',
+      step: '0.01',
+      class: 'focus-range',
+      oninput: () => this.handlers.focus(Number(this.focusInput.value)),
+    });
+    this.focusBox = h(
+      'div',
+      { class: 'focus-box' },
+      h('span', { class: 'focus-end', 'aria-hidden': 'true' }, '🎯'),
+      this.focusInput,
+      h('span', { class: 'focus-end', 'aria-hidden': 'true' }, '☁️'),
+    );
+    this.focusBox.hidden = true;
     this.langButton = h('button', {
       class: 'icon-btn lang-btn',
       onclick: () => {
@@ -66,6 +94,7 @@ export class Ui {
       h('div', { class: 'goal' }, this.hudTitle, this.hudGoal),
       this.hudTimer,
       this.glassesButton,
+      this.inspectButton,
       this.langButton,
       h(
         'button',
@@ -79,13 +108,14 @@ export class Ui {
       ),
     );
     this.hud.hidden = true;
-    this.root.append(this.hud);
+    this.root.append(this.hud, this.focusBox);
     document.documentElement.lang = locale();
     this.updateLangButton();
     onLocaleChange(() => {
       this.updateLangButton();
       this.setHud(this.hudLevel);
       this.setGlasses(this.glassesMode);
+      this.setInspectMode(this.inspectButton.classList.contains('active'));
       this.reopen?.();
     });
     document.body.append(this.root);
@@ -122,8 +152,53 @@ export class Ui {
     this.setTimer(null);
   }
 
-  setTimer(secondsLeft: number | null): void {
-    this.hudTimer.textContent = secondsLeft === null ? '' : String(Math.ceil(secondsLeft));
+  /** Countdown in seconds, a short status text, or nothing. */
+  setTimer(value: number | string | null): void {
+    this.hudTimer.textContent =
+      value === null ? '' : typeof value === 'number' ? String(Math.ceil(value)) : value;
+  }
+
+  /** Shows the focus slider at `value` (0 blurry … 1 sharp), or hides it. */
+  setFocus(value: number | null): void {
+    this.focusBox.hidden = value === null;
+    if (value !== null) this.focusInput.value = String(value);
+    this.focusInput.setAttribute('aria-label', T().focusHint);
+    this.focusBox.title = T().focusHint;
+  }
+
+  setInspectMode(on: boolean): void {
+    this.inspectButton.classList.toggle('active', on);
+    this.inspectButton.setAttribute('aria-pressed', String(on));
+    this.inspectButton.title = T().inspect.button;
+    this.inspectButton.setAttribute('aria-label', T().inspect.button);
+  }
+
+  showInspect(info: InspectInfo, onClose: () => void): void {
+    const s = T().inspect;
+    this.open(
+      [
+        h('h1', {}, info.title),
+        info.state.length > 0 && h('h2', {}, s.stateTitle),
+        ...info.state.map((t) => h('p', {}, t)),
+        h('h2', {}, s.whyTitle),
+        h('p', {}, info.why),
+        h(
+          'p',
+          {},
+          h(
+            'button',
+            {
+              class: 'btn',
+              onclick: () =>
+                this.showLearnMore(info.effects, () => this.showInspect(info, onClose)),
+            },
+            T().learnMore,
+          ),
+        ),
+      ],
+      [{ label: T().close, primary: true, cancel: true, run: onClose }],
+      () => this.showInspect(info, onClose),
+    );
   }
 
   closeScreen(): void {
@@ -242,6 +317,7 @@ export class Ui {
         level.hint && h('p', { class: 'hint' }, tr(level.hint)),
         h('p', { class: 'muted' }, touch ? T().controlsTouch : T().controlsDesktop),
         level.glasses && h('p', { class: 'hint' }, T().glassesHint),
+        level.focus && h('p', { class: 'hint' }, T().focusHint),
         level.chapter > 0 && h('h2', {}, T().whyClassicalFails),
         level.chapter > 0 && h('p', {}, tr(level.whyClassicalFails)),
         this.effectsLink(level, () => this.showIntro(level, touch, onStart, onMenu)),
@@ -284,13 +360,14 @@ export class Ui {
     );
   }
 
-  showLose(reason: 'time' | 'wrong-colour', onRetry: () => void, onMenu: () => void): void {
-    const wrong = reason === 'wrong-colour';
+  showLose(reason: LossReason, onRetry: () => void, onMenu: () => void): void {
+    const text = {
+      time: [T().lost, T().lostText],
+      'wrong-colour': [T().lostWrongColour, T().lostWrongColourText],
+      escaped: [T().lostEscaped, T().lostEscapedText],
+    }[reason];
     this.open(
-      [
-        h('h1', {}, wrong ? T().lostWrongColour : T().lost),
-        h('p', {}, wrong ? T().lostWrongColourText : T().lostText),
-      ],
+      [h('h1', {}, text[0]), h('p', {}, text[1])],
       [
         { label: T().retry, primary: true, run: onRetry },
         { label: T().menu, cancel: true, run: onMenu },

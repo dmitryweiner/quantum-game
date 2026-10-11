@@ -283,3 +283,43 @@
   font-size: 15px;
   font-weight: 700;
 }
+
+.icon-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #08101f;
+}
+
+/* Focus slider on the right edge, under the right thumb. */
+.focus-box {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  background: rgba(21, 26, 46, 0.7);
+  border: 1px solid #2a3358;
+  pointer-events: auto;
+}
+
+.focus-box[hidden] {
+  display: none;
+}
+
+.focus-end {
+  font-size: 18px;
+}
+
+.focus-range {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 36px;
+  height: min(220px, 36vh);
+  margin: 0;
+  accent-color: var(--accent);
+}

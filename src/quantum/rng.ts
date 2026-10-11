@@ -45,3 +45,10 @@ export function pickWeighted(rng: Rng, weights: readonly number[]): number {
   for (let i = weights.length - 1; i >= 0; i--) if ((weights[i] ?? 0) > 0) return i;
   return weights.length - 1;
 }
+
+/** Standard normal sample (Box–Muller). */
+export function gaussian(rng: Rng): number {
+  const u = Math.max(rng.next(), 1e-12);
+  const v = rng.next();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
