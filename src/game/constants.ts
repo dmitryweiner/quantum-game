@@ -14,6 +14,8 @@ export const COLORS = {
   floor: 0x161c33,
   floorLine: 0x222a47,
   gaze: 0xfff2a8,
+  gazeX: 0xa8ffcf,
+  thread: 0xc69bff,
   glass: 0x7fd4ff,
   ghostHeat: 0xb48cff,
   collapse: 0xffffff,

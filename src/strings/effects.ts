@@ -6,7 +6,15 @@ import type { Locale, Text } from '../i18n';
  * get Russian sources where they exist.
  */
 export type EffectId =
-  'superposition' | 'collapse' | 'born-rule' | 'quantum-walk' | 'negative-result' | 'zeno';
+  | 'superposition'
+  | 'collapse'
+  | 'born-rule'
+  | 'quantum-walk'
+  | 'negative-result'
+  | 'zeno'
+  | 'entanglement'
+  | 'complementarity'
+  | 'bell';
 
 export interface EffectLink {
   title: string;
@@ -152,6 +160,84 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
       en: [{ title: 'Wikipedia: Quantum Zeno effect', url: wiki('en', 'Quantum_Zeno_effect') }],
       ru: [
         { title: 'Википедия: Квантовый эффект Зенона', url: wiki('ru', 'Квантовый_эффект_Зенона') },
+      ],
+    },
+  },
+  entanglement: {
+    id: 'entanglement',
+    name: { en: 'Quantum entanglement', ru: 'Квантовая запутанность' },
+    summary: {
+      en:
+        'Two entangled particles share one state: neither has a colour of its own, yet when you measure one, the other instantly gives the matching answer — however far apart they are. ' +
+        'This cannot be used to send a message: each result on its own is a fair coin toss.',
+      ru:
+        'У двух запутанных частиц одно общее состояние: собственного цвета нет ни у одной, но стоит измерить одну, и вторая мгновенно даёт согласованный ответ — на любом расстоянии. ' +
+        'Передать так сообщение нельзя: каждый результат по отдельности — честная монетка.',
+    },
+    links: {
+      en: [{ title: 'Wikipedia: Quantum entanglement', url: wiki('en', 'Quantum_entanglement') }],
+      ru: [
+        { title: 'Википедия: Квантовая запутанность', url: wiki('ru', 'Квантовая_запутанность') },
+      ],
+    },
+  },
+  complementarity: {
+    id: 'complementarity',
+    name: {
+      en: 'Complementary measurements',
+      ru: 'Дополнительные измерения',
+    },
+    summary: {
+      en:
+        'Some questions cannot both have sharp answers: knowing the red/blue colour makes green/orange completely random, and the other way round. ' +
+        'A particle only remembers the last question it was asked — so the order in which you look matters.',
+      ru:
+        'На некоторые вопросы нельзя одновременно получить точные ответы: если известен цвет «красный/синий», то «зелёный/оранжевый» становится полностью случайным, и наоборот. ' +
+        'Частица помнит только последний заданный вопрос, поэтому порядок взглядов важен.',
+    },
+    links: {
+      en: [
+        {
+          title: 'Wikipedia: Complementarity (physics)',
+          url: wiki('en', 'Complementarity_(physics)'),
+        },
+        {
+          title: 'Wikipedia: Stern–Gerlach experiment',
+          url: wiki('en', 'Stern–Gerlach_experiment'),
+        },
+      ],
+      ru: [
+        {
+          title: 'Википедия: Принцип дополнительности',
+          url: wiki('ru', 'Принцип_дополнительности'),
+        },
+        { title: 'Википедия: Опыт Штерна — Герлаха', url: wiki('ru', 'Опыт_Штерна_—_Герлаха') },
+      ],
+    },
+  },
+  bell: {
+    id: 'bell',
+    name: { en: 'Bell’s theorem and the CHSH game', ru: 'Теорема Белла и игра CHSH' },
+    summary: {
+      en:
+        'If the particles carried hidden pre-agreed answers, like socks packed in pairs, no plan could win the CHSH game more than 75% of the time. ' +
+        'Entangled particles reach about 85% — experiments confirm it, and it earned the 2022 Nobel Prize in Physics.',
+      ru:
+        'Если бы частицы несли заранее условленные ответы, как носки, разложенные по парам, ни один план не выигрывал бы в игре CHSH чаще 75% раундов. ' +
+        'Запутанные частицы дают около 85% — это подтверждено экспериментами и отмечено Нобелевской премией по физике 2022 года.',
+    },
+    links: {
+      en: [
+        { title: 'Wikipedia: Bell’s theorem', url: wiki('en', "Bell's_theorem") },
+        { title: 'Wikipedia: CHSH inequality', url: wiki('en', 'CHSH_inequality') },
+        {
+          title: 'Wikipedia: Quantum pseudo-telepathy',
+          url: wiki('en', 'Quantum_pseudo-telepathy'),
+        },
+      ],
+      ru: [
+        { title: 'Википедия: Теорема Белла', url: wiki('ru', 'Теорема_Белла') },
+        { title: 'Википедия: Неравенства Белла', url: wiki('ru', 'Неравенства_Белла') },
       ],
     },
   },

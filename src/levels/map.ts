@@ -9,13 +9,22 @@ export type TileKind = 'floor' | 'wall' | 'glass';
 /**
  * - `quantum`: lives in superposition when unobserved (the cat).
  * - `target`: a cell where a quantum object must be caught (the door).
+ * - `qubit`: one ball of the entangled pair (side 0 near, side 1 far).
+ * - `plate`: a pressure plate; stepping on it tries the lock with its colour.
  * - `decor`: just a picture.
  */
-export type ObjectRole = 'quantum' | 'target' | 'decor';
+export type ObjectRole = 'quantum' | 'target' | 'qubit' | 'plate' | 'decor';
+
+/** Glasses: Z shows 🔴/🔵, X shows 🟢/🟠. */
+export type Basis = 'Z' | 'X';
 
 export interface MapObject {
   char: string;
   role: ObjectRole;
+  /** For `qubit`: which side of the pair. */
+  side?: 0 | 1;
+  /** For `plate`: the colour it asks the lock to check. */
+  plate?: { basis: Basis; outcome: 0 | 1 };
   /** Emoji used as the sprite. */
   emoji: string;
   col: number;
@@ -33,7 +42,7 @@ export interface ParsedMap {
 
 interface LegendEntry {
   tile: TileKind;
-  object?: { role: ObjectRole; emoji: string };
+  object?: Omit<MapObject, 'char' | 'col' | 'row'>;
   player?: true;
 }
 
@@ -48,6 +57,15 @@ export const LEGEND: Readonly<Record<string, LegendEntry>> = {
   L: { tile: 'floor', object: { role: 'decor', emoji: '💡' } },
   a: { tile: 'floor', object: { role: 'decor', emoji: '⚛️' } },
   p: { tile: 'floor', object: { role: 'decor', emoji: '🪴' } },
+  e: { tile: 'floor', object: { role: 'qubit', emoji: '⚪', side: 0 } },
+  E: { tile: 'floor', object: { role: 'qubit', emoji: '⚪', side: 1 } },
+  r: { tile: 'floor', object: { role: 'plate', emoji: '🟥', plate: { basis: 'Z', outcome: 0 } } },
+  b: { tile: 'floor', object: { role: 'plate', emoji: '🟦', plate: { basis: 'Z', outcome: 1 } } },
+  g: { tile: 'floor', object: { role: 'plate', emoji: '🟩', plate: { basis: 'X', outcome: 0 } } },
+  o: { tile: 'floor', object: { role: 'plate', emoji: '🟧', plate: { basis: 'X', outcome: 1 } } },
+  K: { tile: 'floor', object: { role: 'decor', emoji: '🔒' } },
+  R: { tile: 'floor', object: { role: 'decor', emoji: '🤖' } },
+  J: { tile: 'floor', object: { role: 'decor', emoji: '🧑‍⚖️' } },
 };
 
 export function parseMap(lines: readonly string[]): ParsedMap {

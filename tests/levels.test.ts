@@ -18,11 +18,24 @@ describe('level definitions', () => {
 
   for (const level of [...LEVELS, SANDBOX]) {
     describe(level.id, () => {
-      it('has a valid map with a cat and a door', () => {
+      it('has a valid map with what its win condition needs', () => {
         const map = parseMap(level.map);
         if (level.id === 'sandbox') return;
-        expect(map.objects.some((o) => o.role === 'quantum')).toBe(true);
-        expect(map.objects.some((o) => o.role === 'target')).toBe(true);
+        const has = (role: string) => map.objects.some((o) => o.role === role);
+        switch (level.winCondition.type) {
+          case 'catch-at-target':
+            expect(has('quantum') && has('target')).toBe(true);
+            break;
+          case 'unlock': {
+            const sides = map.objects.filter((o) => o.role === 'qubit').map((o) => o.side);
+            expect(sides.sort()).toEqual([0, 1]);
+            expect(map.objects.filter((o) => o.role === 'plate')).toHaveLength(2);
+            break;
+          }
+          case 'chsh':
+            expect(level.winCondition.threshold).toBeGreaterThan(0.75);
+            break;
+        }
       });
 
       it('lists effects that exist in the reference, each with a link', () => {
@@ -87,6 +100,66 @@ const blink =
   (door: Vec2): Strategy =>
   (t) =>
     t % 1.02 >= 1 ? door : null;
+
+describe('chapter 2 playtest', () => {
+  const ch2 = (id: string) => LEVELS.find((l) => l.id === id)!;
+
+  /** Optionally look at the near ball (with given glasses), then walk to a plate. */
+  function unlock(
+    level: LevelDef,
+    plan: { lookWith: ('Z' | 'X')[]; plate: (sim: LevelSim) => 'first' | 'second' },
+    seed: number,
+  ) {
+    const sim = new LevelSim(level, mulberry32(seed));
+    const ball = sim.qubits.find((q) => q.side === 0)!;
+    const plates = sim.map.objects.filter((o) => o.role === 'plate');
+    const ballAt = { x: ball.col + 0.5, y: ball.row + 0.5 };
+    for (const g of plan.lookWith) {
+      if (sim.glasses !== g) sim.toggleGlasses();
+      sim.step(1 / 60, { x: 0, y: 0 }, ballAt);
+    }
+    // Teleporting next to the plate keeps the test about quantum rules, not path finding.
+    const target = plates[plan.plate(sim) === 'first' ? 0 : 1]!;
+    sim.player = { x: target.col + 0.5, y: target.row + 1.5 };
+    sim.step(1 / 60, { x: 0, y: -1 }, null);
+    for (let i = 0; i < 30 && sim.status === 'playing'; i++)
+      sim.step(1 / 60, { x: 0, y: -1 }, null);
+    return sim.status;
+  }
+
+  const byColour = (sim: LevelSim) => {
+    const plates = sim.map.objects.filter((o) => o.role === 'plate');
+    const near = sim.pair!.local[0]!;
+    return plates[0]!.plate!.outcome === near.outcome ? 'first' : 'second';
+  };
+
+  it('ch2-01: looking at your ball first always opens the lock', () => {
+    for (let s = 0; s < 40; s++)
+      expect(unlock(ch2('ch2-01'), { lookWith: ['Z'], plate: byColour }, s)).toBe('won');
+  });
+
+  it('ch2-01: guessing without looking wins about half the time', () => {
+    let wins = 0;
+    for (let s = 0; s < 200; s++)
+      if (unlock(ch2('ch2-01'), { lookWith: [], plate: () => 'first' }, s) === 'won') wins++;
+    expect(wins / 200).toBeGreaterThan(0.35);
+    expect(wins / 200).toBeLessThan(0.65);
+  });
+
+  it('ch2-02: X glasses first always open the lock', () => {
+    for (let s = 0; s < 40; s++)
+      expect(unlock(ch2('ch2-02'), { lookWith: ['X'], plate: byColour }, s)).toBe('won');
+  });
+
+  it('ch2-02: looking with Z first breaks the link even if you then use X', () => {
+    let wins = 0;
+    for (let s = 0; s < 200; s++) {
+      if (unlock(ch2('ch2-02'), { lookWith: ['Z', 'X'], plate: byColour }, s) === 'won') wins++;
+    }
+    expect(wins / 200).toBeGreaterThan(0.35);
+    expect(wins / 200).toBeLessThan(0.65);
+  });
+});
 
 describe('chapter 1 playtest', () => {
   for (const level of LEVELS.filter((l) => l.chapter === 1)) {

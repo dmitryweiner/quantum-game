@@ -1,9 +1,11 @@
 import { LEVELS } from '../../levels';
+import type { Basis } from '../../levels/map';
 import type { LevelDef } from '../../levels/types';
 import { EFFECTS, type EffectId } from '../../strings/effects';
 import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
 import { h, type Child } from './dom';
+import { chshPanel, type ChshState } from './ChshPanel';
 import { completedLevels } from './progress';
 import './ui.css';
 
@@ -20,6 +22,10 @@ export class Ui {
   private screen: HTMLElement | null = null;
   private hudLevel: LevelDef | null = null;
   private readonly langButton: HTMLButtonElement;
+  private readonly glassesButton: HTMLButtonElement;
+  private glassesMode: Basis | null = null;
+  /** Name of the open panel, so background updates only redraw their own panel. */
+  private screenName = '';
   /** Re-renders the open panel, e.g. after the language changes. */
   private reopen: (() => void) | null = null;
   private onKey: ((e: KeyboardEvent) => void) | null = null;
@@ -29,6 +35,7 @@ export class Ui {
     menu: () => {},
     restart: () => {},
     info: () => {},
+    glasses: () => {},
   };
 
   constructor() {
@@ -36,6 +43,11 @@ export class Ui {
     this.hudTitle = h('b');
     this.hudGoal = h('span');
     this.hudTimer = h('div', { class: 'timer' });
+    this.glassesButton = h('button', {
+      class: 'icon-btn glasses-btn',
+      onclick: () => this.handlers.glasses(),
+    });
+    this.glassesButton.hidden = true;
     this.langButton = h('button', {
       class: 'icon-btn lang-btn',
       onclick: () => {
@@ -53,6 +65,7 @@ export class Ui {
       ),
       h('div', { class: 'goal' }, this.hudTitle, this.hudGoal),
       this.hudTimer,
+      this.glassesButton,
       this.langButton,
       h(
         'button',
@@ -72,9 +85,21 @@ export class Ui {
     onLocaleChange(() => {
       this.updateLangButton();
       this.setHud(this.hudLevel);
+      this.setGlasses(this.glassesMode);
       this.reopen?.();
     });
     document.body.append(this.root);
+  }
+
+  /** Shows the glasses switch with its mode, or hides it (null). */
+  setGlasses(mode: Basis | null): void {
+    this.glassesMode = mode;
+    this.glassesButton.hidden = mode === null;
+    if (mode) {
+      this.glassesButton.textContent = T().glasses(mode);
+      this.glassesButton.title = T().glassesHint;
+      this.glassesButton.setAttribute('aria-label', T().glassesHint);
+    }
   }
 
   private updateLangButton(): void {
@@ -105,6 +130,7 @@ export class Ui {
     this.screen?.remove();
     this.screen = null;
     this.reopen = null;
+    this.screenName = '';
     this.hud.classList.remove('covered');
     if (this.onKey) window.removeEventListener('keydown', this.onKey);
     this.onKey = null;
@@ -117,9 +143,14 @@ export class Ui {
     content: Child[],
     actions: { label: string; primary?: boolean; cancel?: boolean; run: () => void }[],
     reopen: () => void,
+    name = '',
   ): void {
+    // Redrawing the same panel keeps its scroll position (e.g. during the CHSH run).
+    const keepScroll =
+      name && name === this.screenName ? (this.screen?.querySelector('.panel')?.scrollTop ?? 0) : 0;
     this.closeScreen();
     this.reopen = reopen;
+    this.screenName = name;
     this.hud.classList.add('covered');
     const buttons = actions.map((a) =>
       h(
@@ -138,6 +169,7 @@ export class Ui {
     if (buttons.length) panel.append(h('div', { class: 'actions' }, ...buttons));
     this.screen = h('div', { class: 'screen' }, panel);
     this.root.append(this.screen);
+    panel.scrollTop = keepScroll;
     this.onKey = (e) => {
       const target =
         e.key === 'Enter'
@@ -209,6 +241,7 @@ export class Ui {
         h('p', {}, tr(level.goal)),
         level.hint && h('p', { class: 'hint' }, tr(level.hint)),
         h('p', { class: 'muted' }, touch ? T().controlsTouch : T().controlsDesktop),
+        level.glasses && h('p', { class: 'hint' }, T().glassesHint),
         level.chapter > 0 && h('h2', {}, T().whyClassicalFails),
         level.chapter > 0 && h('p', {}, tr(level.whyClassicalFails)),
         this.effectsLink(level, () => this.showIntro(level, touch, onStart, onMenu)),
@@ -236,7 +269,7 @@ export class Ui {
   ): void {
     this.open(
       [
-        h('h1', {}, T().won),
+        h('h1', {}, T().won[level.winCondition.type]),
         h('h2', {}, T().whatHappened),
         h('p', {}, tr(level.explanation)),
         !next && h('p', { class: 'muted' }, T().allDone),
@@ -251,14 +284,42 @@ export class Ui {
     );
   }
 
-  showLose(onRetry: () => void, onMenu: () => void): void {
+  showLose(reason: 'time' | 'wrong-colour', onRetry: () => void, onMenu: () => void): void {
+    const wrong = reason === 'wrong-colour';
     this.open(
-      [h('h1', {}, T().lost), h('p', {}, T().lostText)],
+      [
+        h('h1', {}, wrong ? T().lostWrongColour : T().lost),
+        h('p', {}, wrong ? T().lostWrongColourText : T().lostText),
+      ],
       [
         { label: T().retry, primary: true, run: onRetry },
         { label: T().menu, cancel: true, run: onMenu },
       ],
-      () => this.showLose(onRetry, onMenu),
+      () => this.showLose(reason, onRetry, onMenu),
+    );
+  }
+
+  /** The CHSH game panel; `state` keeps rounds and the plan across redraws. */
+  showChsh(level: LevelDef, state: ChshState, on: { pass: () => void; menu: () => void }): void {
+    if (level.winCondition.type !== 'chsh') return;
+    const { rounds, threshold } = level.winCondition;
+    const show = () => this.showChsh(level, state, on);
+    this.open(
+      [
+        h('h1', {}, tr(level.title)),
+        chshPanel(state, {
+          rounds,
+          threshold,
+          rerender: () => {
+            if (this.screenName === 'chsh') show();
+          },
+          onPass: on.pass,
+        }),
+        this.effectsLink(level, show),
+      ],
+      [{ label: T().menu, cancel: true, run: on.menu }],
+      show,
+      'chsh',
     );
   }
 

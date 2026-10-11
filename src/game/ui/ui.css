@@ -217,3 +217,69 @@
   display: inline-block;
   padding: 4px 0;
 }
+
+.panel .big {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.panel .good {
+  color: var(--good);
+}
+
+.choices,
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented .btn,
+.choices .btn {
+  font-size: 14px;
+  padding: 0 12px;
+}
+
+.plan-row {
+  margin: 10px 0;
+}
+
+.plan-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.breakdown {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdown caption {
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+
+.breakdown th,
+.breakdown td {
+  padding: 6px 12px;
+  border: 1px solid #2a3358;
+  text-align: center;
+}
+
+.glasses-btn {
+  width: auto;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+}

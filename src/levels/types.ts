@@ -4,7 +4,11 @@ import type { EffectId } from '../strings/effects';
 /** How a level is won. */
 export type WinCondition =
   /** A quantum object is seen (collapses) on a target cell such as the door. */
-  { type: 'catch-at-target' };
+  | { type: 'catch-at-target' }
+  /** Step on the plate whose colour matches the far ball, as the lock measures it. */
+  | { type: 'unlock' }
+  /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */
+  | { type: 'chsh'; rounds: number; threshold: number };
 
 /** See PLAN.md §1.5. */
 export interface LevelDef {
@@ -28,4 +32,6 @@ export interface LevelDef {
   timeLimit?: number;
   /** Hopping rate γ of quantum objects, 1/s (default 1). */
   hopRate?: number;
+  /** The player can switch glasses between Z and X. */
+  glasses?: boolean;
 }

@@ -9,10 +9,12 @@ import { emojiTexture } from '../emoji';
 import { BRICK_VARIANTS, brickTexture } from '../textures';
 import { Player } from '../entities/Player';
 import { QuantumObject } from '../entities/QuantumObject';
+import { EntanglementThread, Qubit } from '../entities/Qubit';
 import { Controls } from '../input/Controls';
 import { GazeCone } from '../systems/GazeCone';
 import { LevelSim } from '../systems/LevelSim';
 import { ui } from '../ui';
+import { newChshState, type ChshState } from '../ui/ChshPanel';
 import { markCompleted } from '../ui/progress';
 
 export interface LevelSceneData {
@@ -38,6 +40,9 @@ export class LevelScene extends Phaser.Scene {
   private player!: Player;
   private gaze!: GazeCone;
   private quantum: QuantumObject[] = [];
+  private qubits: Qubit[] = [];
+  private thread: EntanglementThread | null = null;
+  private chsh: ChshState | null = null;
   private targetLabels: { text: Phaser.GameObjects.Text; col: number; row: number }[] = [];
   private controls!: Controls;
   private worldLayer!: Phaser.GameObjects.Layer;
@@ -67,6 +72,13 @@ export class LevelScene extends Phaser.Scene {
     this.gaze = new GazeCone(this, this.worldLayer);
     this.drawObjects();
     this.quantum = this.sim.bodies.map((b) => new QuantumObject(this, this.worldLayer, b));
+    const [q0, q1] = this.sim.qubits.map((q) => ({
+      x: (q.col + 0.5) * CELL,
+      y: (q.row + 0.5) * CELL,
+    }));
+    this.thread = q0 && q1 ? new EntanglementThread(this, this.worldLayer, q0, q1) : null;
+    this.qubits = this.sim.qubits.map((q) => new Qubit(this, this.worldLayer, q));
+    this.chsh = this.level.winCondition.type === 'chsh' ? newChshState() : null;
     this.player = new Player(this, this.worldLayer);
     this.controls = new Controls(this, this.uiLayer);
 
@@ -82,24 +94,44 @@ export class LevelScene extends Phaser.Scene {
     overlay.closeScreen();
     overlay.setHud(this.level);
     overlay.setTimer(this.sim.timeLeft);
+    overlay.setGlasses(this.level.glasses ? this.sim.glasses : null);
     overlay.handlers = {
       menu: () => this.openMenu(),
       restart: () => this.restartLevel(true),
       info: () => {
         this.running = false;
-        overlay.showLearnMore(this.level.effects, () => (this.running = true));
+        overlay.showLearnMore(this.level.effects, () => this.begin());
       },
+      glasses: () => this.toggleGlasses(),
     };
+    this.input.keyboard?.on('keydown-Q', this.toggleGlasses, this);
 
     if (data.showMenu) this.openMenu();
-    else if (data.skipIntro || this.level === SANDBOX) this.running = true;
+    else if (data.skipIntro || this.level === SANDBOX) this.begin();
     else
       overlay.showIntro(
         this.level,
         isTouchDevice(),
-        () => (this.running = true),
+        () => this.begin(),
         () => this.openMenu(),
       );
+  }
+
+  /** Starts (or resumes) play; the CHSH level is played in its panel. */
+  private begin(): void {
+    this.running = true;
+    if (this.chsh) {
+      ui().showChsh(this.level, this.chsh, {
+        pass: () => this.onWon(),
+        menu: () => this.openMenu(),
+      });
+    }
+  }
+
+  private toggleGlasses(): void {
+    if (!this.level.glasses || !this.running || ui().isScreenOpen) return;
+    this.sim.toggleGlasses();
+    ui().setGlasses(this.sim.glasses);
   }
 
   override update(time: number, deltaMs: number): void {
@@ -114,8 +146,10 @@ export class LevelScene extends Phaser.Scene {
       );
       for (const e of events) {
         if (e.type === 'collapsed') this.quantum[e.body]?.flash(e.site);
+        else if (e.type === 'qubit-changed')
+          this.qubits.find((q) => (q.def.side ?? 0) === e.side)?.flash();
         else if (e.type === 'won') this.onWon();
-        else if (e.type === 'lost') this.onLost();
+        else if (e.type === 'lost') this.onLost(e.reason);
       }
       ui().setTimer(this.sim.timeLeft);
     }
@@ -124,9 +158,18 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private renderSim(time = 0): void {
-    this.gaze.draw(this.sim.cone, this.sim.opaque);
+    this.gaze.draw(
+      this.sim.cone,
+      this.sim.opaque,
+      this.sim.glasses === 'X' ? COLORS.gazeX : COLORS.gaze,
+    );
     this.player.render(this.sim.player, this.sim.cone !== null);
     for (const q of this.quantum) q.render(time);
+    const { pair } = this.sim;
+    if (pair) {
+      this.thread?.render(pair, time);
+      for (const q of this.qubits) q.render(pair, time);
+    }
     // Chance of finding the cat on each target, while it is spread out.
     const body = this.sim.bodies[0];
     for (const label of this.targetLabels) {
@@ -142,7 +185,9 @@ export class LevelScene extends Phaser.Scene {
     this.running = false;
     if (this.level !== SANDBOX) markCompleted(this.level.id);
     const next = nextLevel(this.level.id);
-    this.time.delayedCall(700, () =>
+    // Let the player see the flash, or the CHSH result, before the panel.
+    const delay = this.level.winCondition.type === 'chsh' ? 1800 : 700;
+    this.time.delayedCall(delay, () =>
       ui().showWin(this.level, next, {
         next: () => next && this.scene.restart({ levelId: next.id }),
         replay: () => this.restartLevel(true),
@@ -151,9 +196,10 @@ export class LevelScene extends Phaser.Scene {
     );
   }
 
-  private onLost(): void {
+  private onLost(reason: 'time' | 'wrong-colour'): void {
     this.running = false;
     ui().showLose(
+      reason,
       () => this.restartLevel(true),
       () => this.openMenu(),
     );
@@ -207,7 +253,7 @@ export class LevelScene extends Phaser.Scene {
 
   private drawObjects(): void {
     for (const obj of this.sim.map.objects) {
-      if (obj.role === 'quantum') continue;
+      if (obj.role === 'quantum' || obj.role === 'qubit') continue;
       const x = (obj.col + 0.5) * CELL;
       const y = (obj.row + 0.5) * CELL;
       if (obj.role === 'target') {
