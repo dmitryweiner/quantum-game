@@ -127,7 +127,11 @@ export class Ui {
       ),
     );
     // The map is laid out below the HUD, whose height depends on the screen width.
-    new ResizeObserver(() => this.handlers.hudResized()).observe(this.hud);
+    new ResizeObserver(() => {
+      // Panels start below the HUD, which is taller when its buttons wrap.
+      this.root.style.setProperty('--hud-h', `${this.hud.offsetHeight}px`);
+      this.handlers.hudResized();
+    }).observe(this.hud);
     this.hud.hidden = true;
     this.root.append(this.hud, this.focusBox);
     document.documentElement.lang = locale();

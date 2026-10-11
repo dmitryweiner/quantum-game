@@ -121,7 +121,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 64px 16px 16px;
+  padding: calc(var(--hud-h, 56px) + 8px) 16px 16px;
   background: rgba(5, 7, 15, 0.72);
   pointer-events: auto;
   backdrop-filter: blur(3px);
