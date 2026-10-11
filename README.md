@@ -15,7 +15,7 @@ cloud of ghosts whenever you close your eyes, and collapses wherever you look.
 | Action      | Phone                                    | Desktop                                      |
 | ----------- | ---------------------------------------- | -------------------------------------------- |
 | Walk        | Left stick (left half of the screen)     | WASD / arrows                                |
-| Look        | Right stick — push towards where to look | Mouse, or hold Shift and use the arrows      |
+| Look        | Right stick — push towards where to look | Mouse, or hold Shift and turn with ← →       |
 | Close eyes  | Let go of the right stick                | Space or hold the right button; let go Shift |
 | Focus       | Slider at the bottom (chapter 3+)        | Slider or mouse wheel                        |
 | Glasses Z/X | 👓 button                                | 👓 button or Q                               |

@@ -210,7 +210,7 @@ export class LevelScene extends Phaser.Scene {
   }
 
   override update(time: number, deltaMs: number): void {
-    const state = this.controls.read();
+    const state = this.controls.read(Math.min(deltaMs, 100) / 1000, this.gazeAngle);
     if (this.running && !ui().isScreenOpen) {
       const dt = Math.min(deltaMs, 100) / 1000;
       const gaze = this.inspecting ? null : this.gazeTarget(state.gaze);

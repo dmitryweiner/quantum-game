@@ -32,7 +32,8 @@ const EN = {
   lostText: 'The cat is still out there in a cloud of maybes. Try a different moment to look.',
   allDone: 'That’s all for now — more chapters are coming.',
   controlsTouch: 'Left thumb: walk · Right thumb: look · Lift right thumb: close eyes',
-  controlsDesktop: 'WASD / arrows: walk · Mouse: look · Space or right mouse button: close eyes',
+  controlsDesktop:
+    'WASD / arrows: walk · Mouse or Shift + ← →: look · Space or right mouse button: close eyes',
   language: 'Language',
   glasses: (b: string) => `👓 ${b}`,
   glassesHint: 'Glasses: Z shows 🔴/🔵, X shows 🟢/🟠 (button or Q)',
@@ -189,7 +190,7 @@ const RU: Strings = {
   controlsTouch:
     'Левый палец — ходить · Правый палец — смотреть · Отпустить правый палец — закрыть глаза',
   controlsDesktop:
-    'WASD / стрелки — ходить · Мышь — смотреть · Пробел или правая кнопка мыши — закрыть глаза',
+    'WASD / стрелки — ходить · Мышь или Shift + ← → — смотреть · Пробел или правая кнопка мыши — закрыть глаза',
   language: 'Язык',
   glasses: (b: string) => `👓 ${b}`,
   glassesHint: 'Очки: в Z шары 🔴/🔵, в X — 🟢/🟠 (кнопка или Q)',

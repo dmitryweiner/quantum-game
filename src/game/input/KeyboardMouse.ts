@@ -4,10 +4,14 @@ import type { Gaze } from './types';
 
 type KeyName = 'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd' | 'space' | 'shift';
 
+/** Keyboard look turns this fast, radians per second. */
+const TURN_RATE = (150 * Math.PI) / 180;
+
 /**
  * Desktop scheme: WASD / arrows to walk, mouse to look, Space or the right
  * button to close the eyes. Holding Shift looks with the keyboard instead:
- * the arrows turn the gaze (WASD still walk), releasing Shift closes the eyes.
+ * the eyes open where they last looked, ← and → turn the gaze smoothly (WASD
+ * still walk), releasing Shift closes the eyes.
  */
 export class KeyboardMouse {
   private readonly keys: Record<KeyName, Phaser.Input.Keyboard.Key> | null;
@@ -16,6 +20,7 @@ export class KeyboardMouse {
   private mouseInside = true;
   /** Direction of the keyboard look (Shift + arrows). */
   private keyAngle = -Math.PI / 2;
+  private wasShift = false;
 
   constructor(private readonly scene: Phaser.Scene) {
     const kb = scene.input.keyboard;
@@ -70,13 +75,19 @@ export class KeyboardMouse {
     return len > 0 ? { x: x / len, y: y / len } : { x: 0, y: 0 };
   }
 
-  get gaze(): Gaze | null {
+  /**
+   * @param dt seconds since the last frame (for turning)
+   * @param current the direction the observer is looking now, to start from
+   */
+  gaze(dt: number, current: number): Gaze | null {
     const k = this.keys;
+    const shift = this.shiftLook;
+    if (shift && !this.wasShift) this.keyAngle = current;
+    this.wasShift = shift;
     if (k?.space.isDown) return null;
-    if (k && this.shiftLook) {
-      const x = (k.right.isDown ? 1 : 0) - (k.left.isDown ? 1 : 0);
-      const y = (k.down.isDown ? 1 : 0) - (k.up.isDown ? 1 : 0);
-      if (x !== 0 || y !== 0) this.keyAngle = Math.atan2(y, x);
+    if (k && shift) {
+      const turn = (k.right.isDown ? 1 : 0) - (k.left.isDown ? 1 : 0);
+      this.keyAngle += turn * TURN_RATE * dt;
       return { kind: 'angle', angle: this.keyAngle };
     }
     const mouse = this.scene.input.mousePointer;

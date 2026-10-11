@@ -15,7 +15,11 @@ export class Controls {
     this.desktop = new KeyboardMouse(scene);
   }
 
-  read(): ControlState {
+  /**
+   * @param dt seconds since the last frame
+   * @param currentGaze the direction the observer is looking now (radians)
+   */
+  read(dt: number, currentGaze: number): ControlState {
     const tm = this.touch.moveVector;
     const move = tm.x !== 0 || tm.y !== 0 ? tm : this.desktop.move;
     if (this.touch.used) {
@@ -24,7 +28,7 @@ export class Controls {
       const angle = this.touch.gazeAngle;
       return { move, gaze: angle === null ? null : { kind: 'angle', angle } };
     }
-    return { move, gaze: this.desktop.gaze };
+    return { move, gaze: this.desktop.gaze(dt, currentGaze) };
   }
 
   draw(): void {
