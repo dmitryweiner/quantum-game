@@ -44,6 +44,8 @@ describe('level definitions', () => {
             break;
           case 'teleport':
           case 'spy':
+          case 'plinko':
+          case 'pairs':
             break;
           case 'escape':
             expect(has('core') && has('exit')).toBe(true);

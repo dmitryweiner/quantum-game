@@ -21,7 +21,8 @@ export type EffectId =
   | 'interference'
   | 'interaction-free'
   | 'teleportation'
-  | 'qkd';
+  | 'qkd'
+  | 'identical';
 
 export interface EffectLink {
   title: string;
@@ -118,8 +119,14 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
         'Пройденное расстояние растёт пропорционально времени — гораздо быстрее случайного блуждания, — а чаще всего объект находят на самом фронте волны.',
     },
     links: {
-      en: [{ title: 'Wikipedia: Quantum walk', url: wiki('en', 'Quantum_walk') }],
-      ru: [{ title: 'Википедия: Квантовое блуждание', url: wiki('ru', 'Квантовое_блуждание') }],
+      en: [
+        { title: 'Wikipedia: Quantum walk', url: wiki('en', 'Quantum_walk') },
+        { title: 'Wikipedia: Galton board', url: wiki('en', 'Galton_board') },
+      ],
+      ru: [
+        { title: 'Википедия: Квантовое блуждание', url: wiki('ru', 'Квантовое_блуждание') },
+        { title: 'Википедия: Доска Гальтона', url: wiki('ru', 'Доска_Гальтона') },
+      ],
     },
   },
   'negative-result': {
@@ -410,6 +417,39 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
         {
           title: 'Википедия: Квантовое распределение ключа',
           url: wiki('ru', 'Квантовое_распределение_ключа'),
+        },
+      ],
+    },
+  },
+  identical: {
+    id: 'identical',
+    name: {
+      en: 'Identical particles: bosons and fermions',
+      ru: 'Тождественные частицы: бозоны и фермионы',
+    },
+    summary: {
+      en:
+        'Two identical quantum particles cannot be told apart even in principle, so the ways they could swap places interfere. ' +
+        'For bosons (photons, helium-4) the swaps add up and they bunch together; for fermions (electrons) they cancel and the particles keep apart — that is why atoms have shells.',
+      ru:
+        'Две тождественные квантовые частицы нельзя различить даже в принципе, поэтому варианты, где они поменялись местами, интерферируют. ' +
+        'У бозонов (фотоны, гелий-4) эти варианты складываются, и частицы сбиваются в кучу; у фермионов (электроны) — гасят друг друга, и частицы держатся порознь. Поэтому у атомов есть оболочки.',
+    },
+    links: {
+      en: [
+        { title: 'Wikipedia: Hong–Ou–Mandel effect', url: wiki('en', 'Hong–Ou–Mandel_effect') },
+        { title: 'Wikipedia: Identical particles', url: wiki('en', 'Identical_particles') },
+        {
+          title: 'Wikipedia: Pauli exclusion principle',
+          url: wiki('en', 'Pauli_exclusion_principle'),
+        },
+      ],
+      ru: [
+        { title: 'Википедия: Тождественные частицы', url: wiki('ru', 'Тождественные_частицы') },
+        { title: 'Википедия: Принцип Паули', url: wiki('ru', 'Принцип_Паули') },
+        {
+          title: 'Википедия (англ.): эффект Хонга — У — Манделя',
+          url: wiki('en', 'Hong–Ou–Mandel_effect'),
         },
       ],
     },

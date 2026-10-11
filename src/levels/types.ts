@@ -39,6 +39,10 @@ export type WinCondition =
   | { type: 'teleport'; rounds: number }
   /** BB84: judge `channels` lines in a row — clean, or tapped by a spy (a panel). */
   | { type: 'spy'; channels: number }
+  /** Quantum Plinko: catch enough balls in one round with a 2-slot bucket (a panel). */
+  | { type: 'plinko' }
+  /** Hong–Ou–Mandel: pick particles that always leave together, then always apart (a panel). */
+  | { type: 'pairs' }
   /** Reach the exit 🏁; every core ☢️ must still be intact when checked there. */
   | { type: 'escape' }
   /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */

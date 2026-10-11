@@ -20,6 +20,7 @@ const EN = {
     4: 'Other Observers',
     5: 'Interference',
     6: 'Quantum Information',
+    7: 'Crowds and Walks',
   } as Record<number, string>,
   classical: {
     title: 'Classical mode',
@@ -57,6 +58,8 @@ const EN = {
     bombs: 'Bombs sorted safely! 💣',
     teleport: 'Teleported! ✨',
     spy: 'The line is safe with you! 🔐',
+    plinko: 'Bucket full! 🪣',
+    pairs: 'Sheep together, penguins apart! 🐑🐧',
     chsh: 'Telepathy confirmed! 🎉',
   },
   lost: 'Time’s up ⏳',
@@ -74,12 +77,43 @@ const EN = {
   lostCore: 'The core decayed 💥',
   lostCoreText:
     'Left unwatched, the core slid towards decay — and a look found it gone. Keep it in sight the whole time; brief glances away are fine.',
+  lostPairs: 'Out of pairs 🐑',
+  lostPairsText: 'These particles do not always behave the same way. Try another kind.',
   lostSpy: 'Wrong call 🕵️',
   lostSpyText:
     'Compare enough bits before you decide: with a spy on the line, about one in four of them disagree.',
   lostBombs: 'Too many explosions 💥',
   lostBombsText:
     'The live bombs went off before you could prove one safely. Try again — the boxes are reshuffled.',
+  plinko: {
+    scheme:
+      'Quantum balls start in the middle of the board and spread as waves before they land. Your 2-slot bucket 🪣 catches whatever lands in it.',
+    bucket: (from: number) => `Bucket over slots ${from + 1}–${from + 2}`,
+    drop: (n: number) => `⬇️ Drop ${n} balls`,
+    caught: (k: number, need: number) => `Caught ${k} — need ${need} in one round.`,
+    landedTitle: 'Where all the balls so far have landed',
+  },
+  pairs: {
+    scheme:
+      'Two particles meet at a half-mirror 🪞, one from each side. Each can bounce or pass; then they leave through the left or right door.',
+    task: (t: 'together' | 'apart'): string =>
+      t === 'together'
+        ? 'Task 1: the pair always leaves through the SAME door'
+        : 'Task 2: the pair always leaves through DIFFERENT doors',
+    streak: (n: number, need: number, tries: number) =>
+      `In a row: ${n} / ${need} · pairs left: ${tries}`,
+    choose: 'Choose the particles:',
+    bosons: '🐑 Sheep',
+    fermions: '🐧 Penguins',
+    marbles: '🔴🔵 Marbles',
+    send: '🪞 Send a pair',
+    result: {
+      'together-left': '⬅️ Both out of the left door',
+      'together-right': '➡️ Both out of the right door',
+      apart: '↔️ They split up',
+    } as Record<string, string>,
+    taskDone: 'Task done! ✅',
+  },
   teleport: {
     scheme:
       'Your room: the secret 🎁 and your half of an entangled pair ⚪. Sealed room: the other half ⚪. Between the rooms only a phone line for ordinary bits.',
@@ -283,6 +317,7 @@ const RU: Strings = {
     4: 'Чужие наблюдатели',
     5: 'Интерференция',
     6: 'Квантовая информация',
+    7: 'Толпы и блуждания',
   },
   classical: {
     title: 'Классический режим',
@@ -320,6 +355,8 @@ const RU: Strings = {
     bombs: 'Бомбы найдены без риска! 💣',
     teleport: 'Телепортировано! ✨',
     spy: 'С тобой линия в безопасности! 🔐',
+    plinko: 'Ведро полное! 🪣',
+    pairs: 'Овцы вместе, пингвины врозь! 🐑🐧',
     chsh: 'Телепатия подтверждена! 🎉',
   },
   lost: 'Время вышло ⏳',
@@ -338,12 +375,43 @@ const RU: Strings = {
   lostCore: 'Ядро распалось 💥',
   lostCoreText:
     'Без присмотра ядро скатилось к распаду, и взгляд застал его уже распавшимся. Держи его в поле зрения всё время; короткие отлучки не страшны.',
+  lostPairs: 'Пары закончились 🐑',
+  lostPairsText: 'Эти частицы не ведут себя «всегда» одинаково. Попробуй другой вид.',
   lostSpy: 'Неверное решение 🕵️',
   lostSpyText:
     'Сверь достаточно бит, прежде чем решать: если на линии шпион, не совпадает примерно каждый четвёртый.',
   lostBombs: 'Слишком много взрывов 💥',
   lostBombsText:
     'Живые бомбы взорвались раньше, чем ты успел безопасно доказать хоть одну. Попробуй ещё — коробки перемешаны заново.',
+  plinko: {
+    scheme:
+      'Квантовые шарики стартуют посередине доски и, прежде чем упасть, расплываются волной. Ведро 🪣 на две ячейки ловит всё, что в него попадёт.',
+    bucket: (from: number) => `Ведро над ячейками ${from + 1}–${from + 2}`,
+    drop: (n: number) => `⬇️ Бросить ${n} шарика`,
+    caught: (k: number, need: number) => `Поймано ${k} — нужно ${need} за один раунд.`,
+    landedTitle: 'Куда упали все шарики до сих пор',
+  },
+  pairs: {
+    scheme:
+      'Две частицы встречаются на полупрозрачном зеркале 🪞, по одной с каждой стороны. Каждая может отразиться или пройти — и выходит в левую или правую дверь.',
+    task: (t: 'together' | 'apart') =>
+      t === 'together'
+        ? 'Задание 1: пара всегда выходит в ОДНУ дверь'
+        : 'Задание 2: пара всегда выходит в РАЗНЫЕ двери',
+    streak: (n: number, need: number, tries: number) =>
+      `Подряд: ${n} / ${need} · осталось пар: ${tries}`,
+    choose: 'Выбери частицы:',
+    bosons: '🐑 Овцы',
+    fermions: '🐧 Пингвины',
+    marbles: '🔴🔵 Шарики',
+    send: '🪞 Отправить пару',
+    result: {
+      'together-left': '⬅️ Обе вышли влево вместе',
+      'together-right': '➡️ Обе вышли вправо вместе',
+      apart: '↔️ Разошлись',
+    } as Record<string, string>,
+    taskDone: 'Задание выполнено! ✅',
+  },
   teleport: {
     scheme:
       'Твоя комната: секрет 🎁 и твоя половинка запутанной пары ⚪. Запертая комната: другая половинка ⚪. Между комнатами — только телефон для обычных битов.',

@@ -469,3 +469,42 @@
   font-size: 16px;
   color: var(--muted);
 }
+
+.plinko-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  height: 120px;
+  align-items: end;
+  margin: 6px 0 0;
+}
+
+.plinko-board .slot {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+}
+
+.plinko-board .slot.bucket {
+  background: rgba(255, 207, 122, 0.18);
+}
+
+.plinko-board .bar {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+
+.plinko-board.bucket-row {
+  height: auto;
+  min-height: 24px;
+  font-size: 16px;
+  overflow: visible;
+}
+
+.slot-cell {
+  white-space: nowrap;
+}
