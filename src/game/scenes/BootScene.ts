@@ -7,6 +7,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('Play');
+    this.scene.start('Level', { showMenu: true });
   }
 }

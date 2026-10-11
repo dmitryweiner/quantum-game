@@ -12,11 +12,9 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // noUncheckedIndexedAccess makes every typed-array read optional; `!` is the idiom there.
+      '@typescript-eslint/no-non-null-assertion': 'off',
     },
-  },
-  {
-    files: ['tests/**/*.ts'],
-    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   prettier,
 );

@@ -1,12 +1,10 @@
 import type Phaser from 'phaser';
-import { CELL, COLORS, GAZE } from '../constants';
-import type { Vec2 } from './movement';
+import { CELL, COLORS } from '../constants';
+import { castRay, type Cone, type SightBlocker } from './sight';
 
-/**
- * Draws the observer's field of view. In M0 it is purely visual; from M1
- * the GazeSystem will use the same cone (with wall occlusion) to decide
- * which quantum objects are being measured.
- */
+const RAYS = 48;
+
+/** Draws the observer's field of view, cut off by walls (glass lets it through). */
 export class GazeCone {
   private readonly gfx: Phaser.GameObjects.Graphics;
 
@@ -15,17 +13,22 @@ export class GazeCone {
     layer.add(this.gfx);
   }
 
-  /** `from` and `target` are in world units; `target` null hides the cone. */
-  draw(from: Vec2, target: Vec2 | null): void {
+  draw(cone: Cone | null, blocks: SightBlocker): void {
     const g = this.gfx;
     g.clear();
-    if (!target) return;
-    const angle = Math.atan2(target.y - from.y, target.x - from.x);
-    const r = GAZE.range * CELL;
+    if (!cone) return;
+    const { origin } = cone;
     g.fillStyle(COLORS.gaze, 0.16);
-    g.slice(from.x, from.y, r, angle - GAZE.halfAngle, angle + GAZE.halfAngle, false);
-    g.fillPath();
     g.lineStyle(2, COLORS.gaze, 0.35);
+    g.beginPath();
+    g.moveTo(origin.x * CELL, origin.y * CELL);
+    for (let i = 0; i <= RAYS; i++) {
+      const a = cone.angle - cone.halfAngle + (2 * cone.halfAngle * i) / RAYS;
+      const d = castRay(origin, a, cone.range, blocks);
+      g.lineTo((origin.x + Math.cos(a) * d) * CELL, (origin.y + Math.sin(a) * d) * CELL);
+    }
+    g.closePath();
+    g.fillPath();
     g.strokePath();
   }
 }

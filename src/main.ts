@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { viewportSize, DPR } from './game/display';
 import { BootScene } from './game/scenes/BootScene';
-import { PlayScene } from './game/scenes/PlayScene';
+import { LevelScene } from './game/scenes/LevelScene';
 
 const size = viewportSize();
 
@@ -17,7 +17,7 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   disableContextMenu: true,
-  scene: [BootScene, PlayScene],
+  scene: [BootScene, LevelScene],
 });
 
 const onResize = () => {
@@ -26,3 +26,6 @@ const onResize = () => {
 };
 window.addEventListener('resize', onResize);
 window.addEventListener('orientationchange', onResize);
+
+// Lets automated checks step frames by hand (`__game.step(t, dt)`) in dev builds.
+if (import.meta.env.DEV) Object.assign(window, { __game: game });

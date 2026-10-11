@@ -3,9 +3,19 @@
  * unknown characters are a hard error so typos are caught by tests.
  */
 
-export type TileKind = 'floor' | 'wall';
+/** Walls stop everything; glass stops movement but not sight. */
+export type TileKind = 'floor' | 'wall' | 'glass';
+
+/**
+ * - `quantum`: lives in superposition when unobserved (the cat).
+ * - `target`: a cell where a quantum object must be caught (the door).
+ * - `decor`: just a picture.
+ */
+export type ObjectRole = 'quantum' | 'target' | 'decor';
 
 export interface MapObject {
+  char: string;
+  role: ObjectRole;
   /** Emoji used as the sprite. */
   emoji: string;
   col: number;
@@ -23,19 +33,21 @@ export interface ParsedMap {
 
 interface LegendEntry {
   tile: TileKind;
-  emoji?: string;
+  object?: { role: ObjectRole; emoji: string };
   player?: true;
 }
 
 export const LEGEND: Readonly<Record<string, LegendEntry>> = {
   '.': { tile: 'floor' },
   '#': { tile: 'wall' },
+  '=': { tile: 'glass' },
   '@': { tile: 'floor', player: true },
-  c: { tile: 'floor', emoji: '🐱' },
-  k: { tile: 'floor', emoji: '🔑' },
-  D: { tile: 'floor', emoji: '🚪' },
-  L: { tile: 'floor', emoji: '💡' },
-  a: { tile: 'floor', emoji: '⚛️' },
+  c: { tile: 'floor', object: { role: 'quantum', emoji: '🐱' } },
+  D: { tile: 'floor', object: { role: 'target', emoji: '🚪' } },
+  k: { tile: 'floor', object: { role: 'decor', emoji: '🔑' } },
+  L: { tile: 'floor', object: { role: 'decor', emoji: '💡' } },
+  a: { tile: 'floor', object: { role: 'decor', emoji: '⚛️' } },
+  p: { tile: 'floor', object: { role: 'decor', emoji: '🪴' } },
 };
 
 export function parseMap(lines: readonly string[]): ParsedMap {
@@ -59,7 +71,7 @@ export function parseMap(lines: readonly string[]): ParsedMap {
         if (playerStart) throw new Error('parseMap: more than one player start');
         playerStart = { col, row };
       }
-      if (entry.emoji) objects.push({ emoji: entry.emoji, col, row });
+      if (entry.object) objects.push({ char: ch, ...entry.object, col, row });
     });
     tiles.push(tileRow);
   });
@@ -69,6 +81,23 @@ export function parseMap(lines: readonly string[]): ParsedMap {
 }
 
 /** Out-of-bounds cells count as walls. */
-export function isWall(map: ParsedMap, col: number, row: number): boolean {
-  return (map.tiles[row]?.[col] ?? 'wall') === 'wall';
+export function tileAt(map: ParsedMap, col: number, row: number): TileKind {
+  return map.tiles[row]?.[col] ?? 'wall';
+}
+
+/** Blocks movement (walls and glass). */
+export function isSolid(map: ParsedMap, col: number, row: number): boolean {
+  return tileAt(map, col, row) !== 'floor';
+}
+
+/** Blocks sight (walls only). */
+export function blocksSight(map: ParsedMap, col: number, row: number): boolean {
+  return tileAt(map, col, row) === 'wall';
+}
+
+/** Swaps rows and columns, so a wide level can be shown tall on a portrait screen. */
+export function transposeMap(lines: readonly string[]): string[] {
+  const rows = lines.map((l) => [...l]);
+  const cols = rows[0]?.length ?? 0;
+  return Array.from({ length: cols }, (_, c) => rows.map((r) => r[c] ?? '').join(''));
 }

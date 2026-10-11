@@ -14,6 +14,10 @@ export const COLORS = {
   floor: 0x161c33,
   floorLine: 0x222a47,
   gaze: 0xfff2a8,
+  glass: 0x7fd4ff,
+  ghostHeat: 0xb48cff,
+  collapse: 0xffffff,
+  target: 0xffcf7a,
   joystickBase: 0xffffff,
   joystickKnob: 0x7fd4ff,
 } as const;

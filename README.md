@@ -7,6 +7,9 @@ observer 👁️ — and the very act of looking changes what happens.
 
 Game design, architecture and milestones: [PLAN.md](PLAN.md).
 
+Chapter 1 (“The Observer Effect”) is playable: a cat 🐱 that spreads into a
+cloud of ghosts whenever you close your eyes, and collapses wherever you look.
+
 ## Controls
 
 | Action     | Phone                          | Desktop                    |
@@ -32,7 +35,7 @@ Stack: TypeScript (strict), Phaser 4, Vite, Vitest, ESLint, Prettier.
 
 - `src/quantum/` — pure TypeScript model with a seedable RNG, fully unit-tested.
 - `src/game/` — Phaser layer: scenes, entities, input, systems.
-- `src/levels/` — level maps and definitions.
+- `src/levels/` — level maps and definitions; `tests/levels.test.ts` playtests them by simulation.
 - `src/strings/` — all player-facing text (English).
 
 Every push to `main` is deployed to GitHub Pages by `.github/workflows/deploy.yml`.
