@@ -1,7 +1,7 @@
 import { LEVELS } from '../../levels';
 import type { LevelDef } from '../../levels/types';
 import { EFFECTS, type EffectId } from '../../strings/effects';
-import { LOCALE_NAMES, LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
+import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
 import { h, type Child } from './dom';
 import { completedLevels } from './progress';
@@ -19,6 +19,9 @@ export class Ui {
   private readonly hudTimer: HTMLElement;
   private screen: HTMLElement | null = null;
   private hudLevel: LevelDef | null = null;
+  private readonly langButton: HTMLButtonElement;
+  /** Re-renders the open panel, e.g. after the language changes. */
+  private reopen: (() => void) | null = null;
   private onKey: ((e: KeyboardEvent) => void) | null = null;
 
   /** Set by the level scene. */
@@ -33,6 +36,13 @@ export class Ui {
     this.hudTitle = h('b');
     this.hudGoal = h('span');
     this.hudTimer = h('div', { class: 'timer' });
+    this.langButton = h('button', {
+      class: 'icon-btn lang-btn',
+      onclick: () => {
+        const i = LOCALES.indexOf(locale());
+        setLocale(LOCALES[(i + 1) % LOCALES.length]!);
+      },
+    });
     this.hud = h(
       'div',
       { class: 'hud' },
@@ -43,6 +53,7 @@ export class Ui {
       ),
       h('div', { class: 'goal' }, this.hudTitle, this.hudGoal),
       this.hudTimer,
+      this.langButton,
       h(
         'button',
         { class: 'icon-btn', 'aria-label': 'Learn more', onclick: () => this.handlers.info() },
@@ -57,8 +68,19 @@ export class Ui {
     this.hud.hidden = true;
     this.root.append(this.hud);
     document.documentElement.lang = locale();
-    onLocaleChange(() => this.setHud(this.hudLevel));
+    this.updateLangButton();
+    onLocaleChange(() => {
+      this.updateLangButton();
+      this.setHud(this.hudLevel);
+      this.reopen?.();
+    });
     document.body.append(this.root);
+  }
+
+  private updateLangButton(): void {
+    this.langButton.textContent = locale().toUpperCase();
+    this.langButton.setAttribute('aria-label', T().language);
+    this.langButton.title = T().language;
   }
 
   get isScreenOpen(): boolean {
@@ -82,6 +104,8 @@ export class Ui {
   closeScreen(): void {
     this.screen?.remove();
     this.screen = null;
+    this.reopen = null;
+    this.hud.classList.remove('covered');
     if (this.onKey) window.removeEventListener('keydown', this.onKey);
     this.onKey = null;
     // A focused button would swallow Space, which closes the eyes.
@@ -92,8 +116,11 @@ export class Ui {
   private open(
     content: Child[],
     actions: { label: string; primary?: boolean; cancel?: boolean; run: () => void }[],
+    reopen: () => void,
   ): void {
     this.closeScreen();
+    this.reopen = reopen;
+    this.hud.classList.add('covered');
     const buttons = actions.map((a) =>
       h(
         'button',
@@ -132,24 +159,6 @@ export class Ui {
     const content: Child[] = [
       h('h1', {}, `👁️ ${T().title}`),
       h('p', { class: 'muted' }, T().tagline),
-      h(
-        'div',
-        { class: 'lang', role: 'group', 'aria-label': T().language },
-        ...LOCALES.map((l) =>
-          h(
-            'button',
-            {
-              class: l === locale() ? 'btn primary' : 'btn',
-              lang: l,
-              onclick: () => {
-                setLocale(l);
-                this.showMenu(onPick);
-              },
-            },
-            LOCALE_NAMES[l],
-          ),
-        ),
-      ),
     ];
     for (const ch of chapters) {
       content.push(h('h2', {}, `${T().chapter(ch)} · ${T().chapterTitles[ch] ?? ''}`));
@@ -189,7 +198,7 @@ export class Ui {
       ),
       h('p', { class: 'muted' }, `build ${__BUILD__}`),
     );
-    this.open(content, []);
+    this.open(content, [], () => this.showMenu(onPick));
   }
 
   showIntro(level: LevelDef, touch: boolean, onStart: () => void, onMenu: () => void): void {
@@ -208,6 +217,7 @@ export class Ui {
         { label: T().start, primary: true, run: onStart },
         { label: T().menu, cancel: true, run: onMenu },
       ],
+      () => this.showIntro(level, touch, onStart, onMenu),
     );
   }
 
@@ -215,6 +225,7 @@ export class Ui {
     this.open(
       [h('h1', {}, T().learnMoreTitle), ...effects.map((id) => this.effectCard(id))],
       [{ label: T().close, primary: true, cancel: true, run: onClose }],
+      () => this.showLearnMore(effects, onClose),
     );
   }
 
@@ -236,6 +247,7 @@ export class Ui {
         { label: T().retry, primary: !next, run: on.replay },
         { label: T().menu, cancel: true, run: on.menu },
       ],
+      () => this.showWin(level, next, on),
     );
   }
 
@@ -246,6 +258,7 @@ export class Ui {
         { label: T().retry, primary: true, run: onRetry },
         { label: T().menu, cancel: true, run: onMenu },
       ],
+      () => this.showLose(onRetry, onMenu),
     );
   }
 

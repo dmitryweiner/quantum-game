@@ -30,6 +30,8 @@
 
 .hud {
   position: absolute;
+  /* Above panels, so the language switch works everywhere. */
+  z-index: 2;
   top: 0;
   left: 0;
   right: 0;
@@ -38,6 +40,17 @@
   gap: 8px;
   padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 6px
     max(8px, env(safe-area-inset-left));
+}
+
+.hud.covered > :not(.lang-btn) {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.lang-btn {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .hud[hidden] {
@@ -85,7 +98,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 64px 16px 16px;
   background: rgba(5, 7, 15, 0.72);
   pointer-events: auto;
   backdrop-filter: blur(3px);
@@ -203,10 +216,4 @@
   margin-right: 12px;
   display: inline-block;
   padding: 4px 0;
-}
-
-.lang {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
 }
