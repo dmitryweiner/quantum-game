@@ -15,7 +15,9 @@ export type EffectId =
   | 'entanglement'
   | 'complementarity'
   | 'bell'
-  | 'uncertainty';
+  | 'uncertainty'
+  | 'tunnelling'
+  | 'decoherence';
 
 export interface EffectLink {
   title: string;
@@ -263,6 +265,40 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
           title: 'Википедия: Принцип неопределённости',
           url: wiki('ru', 'Принцип_неопределённости'),
         },
+      ],
+    },
+  },
+  tunnelling: {
+    id: 'tunnelling',
+    name: { en: 'Quantum tunnelling', ru: 'Туннельный эффект' },
+    summary: {
+      en:
+        'A quantum wave does not stop dead at a barrier it cannot climb: it fades inside it, and if the barrier is thin enough a part comes out the other side. ' +
+        'The chance drops steeply with thickness. Tunnelling powers the Sun and flash memory.',
+      ru:
+        'Квантовая волна не останавливается намертво у барьера, на который ей не взобраться: внутри она затухает, и если барьер тонкий, часть волны выходит с другой стороны. ' +
+        'С толщиной шанс падает очень круто. На туннелировании работают Солнце и флеш-память.',
+    },
+    links: {
+      en: [{ title: 'Wikipedia: Quantum tunnelling', url: wiki('en', 'Quantum_tunnelling') }],
+      ru: [{ title: 'Википедия: Туннельный эффект', url: wiki('ru', 'Туннельный_эффект') }],
+    },
+  },
+  decoherence: {
+    id: 'decoherence',
+    name: { en: 'Decoherence', ru: 'Декогеренция' },
+    summary: {
+      en:
+        'You are not the only observer: cameras, heat, stray air molecules — anything that records where an object is collapses it just like a look. ' +
+        'Big objects are bumped all the time, which is why they never seem to be in two places at once.',
+      ru:
+        'Ты не единственный наблюдатель: камеры, тепло, случайные молекулы воздуха — всё, что фиксирует, где объект, схлопывает его так же, как взгляд. ' +
+        'Большие предметы задевает постоянно, поэтому они никогда не кажутся находящимися в двух местах сразу.',
+    },
+    links: {
+      en: [{ title: 'Wikipedia: Quantum decoherence', url: wiki('en', 'Quantum_decoherence') }],
+      ru: [
+        { title: 'Википедия: Квантовая декогеренция', url: wiki('ru', 'Квантовая_декогеренция') },
       ],
     },
   },

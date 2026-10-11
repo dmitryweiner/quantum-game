@@ -1,6 +1,8 @@
 import {
   blocksSight,
   isSolid,
+  isWaveOpen,
+  tileAt,
   parseMap,
   transposeMap,
   type Basis,
@@ -41,7 +43,35 @@ export interface Flower {
   r: RabiSystem;
 }
 
-export type LossReason = 'time' | 'wrong-colour' | 'escaped';
+export type LossReason = 'time' | 'wrong-colour' | 'escaped' | 'core';
+
+export interface Camera {
+  def: MapObject;
+  cone: Cone;
+}
+
+export interface Core {
+  def: MapObject;
+  r: RabiSystem;
+  /** Found decayed (💥). */
+  decayed: boolean;
+  /** Seconds since it was found decayed (outside 'escape' levels a fresh core appears). */
+  decayedFor: number;
+}
+
+/** Other observers and the environment (PLAN.md §2.2, #9 decoherence). */
+export const OBSERVERS = {
+  cameraRange: 6,
+  cameraHalfAngle: (20 * Math.PI) / 180,
+  /** How often a hot cell "notices" an object on it, per second. */
+  hotRate: 3,
+  /**
+   * Barrier height in units of the hopping rate γ. The lattice band spans
+   * [-2γ, 2γ]; a barrier site's band is [V-2γ, V+2γ], so only V > 4γ leaves
+   * no way over the top — what gets through then is pure tunnelling.
+   */
+  barrier: 4.5,
+} as const;
 
 /** Phases of the 'zone-after-dark' level. */
 export type ZonePhase = 'look' | 'dark' | 'done';
@@ -96,6 +126,13 @@ export class LevelSim {
   readonly lamps: Lamp[];
   readonly flowers: Flower[];
   readonly zone: MapObject[];
+  readonly cameras: Camera[];
+  readonly cores: Core[];
+  /** Cameras watch only while this is true (always, unless the level has a switch). */
+  camerasOn: boolean;
+  private readonly hotCells: Set<string>;
+  private readonly switches: MapObject[];
+  private readonly exits: MapObject[];
   player: Vec2;
   glasses: Basis = 'Z';
   /** 0 = wide and blurry, 1 = narrow and sharp. Only levels with `focus` use it. */
@@ -139,16 +176,41 @@ export class LevelSim {
       .map((def) => ({ def, r: new RabiSystem(Math.PI / 8) }));
     this.zone = this.map.objects.filter((o) => o.role === 'zone' || o.char === 'A');
     this.trapped = level.winCondition.type === 'zone-after-dark';
-    const open = (c: number, r: number) => !isSolid(this.map, c, r);
+    this.cameras = this.map.objects
+      .filter((o) => o.role === 'camera')
+      .map((def) => ({
+        def,
+        cone: {
+          origin: { x: def.col + 0.5, y: def.row + 0.5 },
+          angle: def.facing ?? 0,
+          range: OBSERVERS.cameraRange,
+          halfAngle: OBSERVERS.cameraHalfAngle,
+        },
+      }));
+    this.switches = this.map.objects.filter((o) => o.role === 'switch');
+    this.camerasOn = this.switches.length === 0;
+    this.hotCells = new Set(
+      this.map.objects.filter((o) => o.role === 'hot').map((o) => `${o.col},${o.row}`),
+    );
+    this.exits = this.map.objects.filter((o) => o.role === 'exit');
+    this.cores = this.map.objects
+      .filter((o) => o.role === 'core')
+      .map((def) => ({
+        def,
+        r: new RabiSystem(level.coreRate ?? Math.PI / 10),
+        decayed: false,
+        decayedFor: 0,
+      }));
+    const open = (c: number, r: number) => isWaveOpen(this.map, c, r);
     this.bodies = this.map.objects
       .filter((o) => o.role === 'quantum')
       .map((def) => {
         const lattice = floodLattice(def, open);
-        const psi = new Superposition(
-          lattice,
-          lattice.siteAt(def.col, def.row),
-          level.hopRate ?? 1,
+        const hop = level.hopRate ?? 1;
+        const potential = Array.from(lattice.col, (c, i) =>
+          tileAt(this.map, c, lattice.row[i]!) === 'barrier' ? OBSERVERS.barrier * hop : 0,
         );
+        const psi = new Superposition(lattice, lattice.siteAt(def.col, def.row), hop, potential);
         if (def.spread) psi.setGaussian({ x: def.col, y: def.row }, def.spread);
         return {
           def,
@@ -174,7 +236,7 @@ export class LevelSim {
   }
 
   get range(): number {
-    return this.level.focus ? FOCUS.range : GAZE.range;
+    return this.level.focus ? FOCUS.range : (this.level.gazeRange ?? GAZE.range);
   }
 
   /** Resolution of one photon in cells, or 0 for a sharp look (collapse every frame). */
@@ -264,6 +326,12 @@ export class LevelSim {
       if (this.targets.some((t) => t.col === col && t.row === row)) won = true;
     });
     if (this.level.detectorRate) won ||= this.autoDetect(dt, events);
+    if (this.switches.length > 0) {
+      const me = this.playerCell();
+      this.camerasOn = this.switches.some((w) => w.col === me.col && w.row === me.row);
+    }
+    won = this.otherObservers(dt, events) || won;
+    if (this.observeCores(dt, events)) return this.lose(events, 'core');
 
     this.observeQubits(events);
     this.observeLampsAndFlowers(dt, events);
@@ -274,6 +342,19 @@ export class LevelSim {
     }
 
     const cell = this.playerCell();
+    if (
+      this.level.winCondition.type === 'escape' &&
+      this.exits.some((x) => x.col === cell.col && x.row === cell.row)
+    ) {
+      // At the exit every core gets one last look.
+      for (const core of this.cores) {
+        if (core.decayed || core.r.measure(this.rng) === 1) {
+          core.decayed = true;
+          return this.lose(events, 'core');
+        }
+      }
+      won = true;
+    }
     if (cell.col !== cellBefore.col || cell.row !== cellBefore.row) {
       const plate = this.plates.find((p) => p.col === cell.col && p.row === cell.row);
       if (plate?.plate && this.pair && this.level.winCondition.type === 'unlock') {
@@ -324,6 +405,71 @@ export class LevelSim {
         events.push({ type: 'flash', col: flower.def.col, row: flower.def.row });
       }
     }
+  }
+
+  /**
+   * Cameras (sharp, every frame while on) and hot cells (now and then)
+   * measure quantum objects exactly like the player does — decoherence is
+   * just someone else looking. Returns true if a camera caught a quantum
+   * object on a target.
+   */
+  private otherObservers(dt: number, events: SimEvent[]): boolean {
+    let won = false;
+    this.bodies.forEach((body, index) => {
+      const { lattice } = body.psi;
+      if (this.camerasOn) {
+        for (const cam of this.cameras) {
+          const seen = Array.from(lattice.col, (c, i) =>
+            cellSeen(cam.cone, c, lattice.row[i]!, this.opaque),
+          );
+          const wasDefinite = body.psi.definiteSite() >= 0;
+          const out = body.psi.measure(seen, this.rng);
+          if (out.kind !== 'found') continue;
+          if (!wasDefinite) events.push({ type: 'collapsed', body: index, site: out.site });
+          const col = lattice.col[out.site];
+          const row = lattice.row[out.site];
+          if (this.targets.some((t) => t.col === col && t.row === row)) won = true;
+        }
+      }
+      if (this.hotCells.size > 0) {
+        const w = Array.from(lattice.col, (c, i) =>
+          this.hotCells.has(`${c},${lattice.row[i]}`) ? 1 : 0,
+        );
+        const wasDefinite = body.psi.definiteSite() >= 0;
+        const out = body.psi.measureSoft(w, OBSERVERS.hotRate * dt, 0, this.rng);
+        if (out.kind === 'found' && !wasDefinite) {
+          events.push({ type: 'collapsed', body: index, site: out.site });
+        }
+      }
+    });
+    return won;
+  }
+
+  /**
+   * Cores swing towards decay unless watched; a look that finds one decayed
+   * loses an 'escape' level. Elsewhere (the sandbox) a fresh core appears.
+   */
+  private observeCores(dt: number, events: SimEvent[]): boolean {
+    const fatal = this.level.winCondition.type === 'escape';
+    for (const core of this.cores) {
+      if (core.decayed) {
+        core.decayedFor += dt;
+        if (!fatal && core.decayedFor > 2) {
+          core.decayed = false;
+          core.r.angle = 0;
+        }
+        continue;
+      }
+      core.r.evolve(dt);
+      if (!this.sees(core.def.col, core.def.row)) continue;
+      if (core.r.measure(this.rng) === 1) {
+        core.decayed = true;
+        core.decayedFor = 0;
+        events.push({ type: 'flash', col: core.def.col, row: core.def.row });
+        if (fatal) return true;
+      }
+    }
+    return false;
   }
 
   /**

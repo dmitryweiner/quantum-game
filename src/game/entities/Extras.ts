@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 import type { Basis } from '../../levels/map';
 import { CELL } from '../constants';
 import { emojiTexture } from '../emoji';
-import type { Flower, Lamp } from '../systems/LevelSim';
+import type { Core, Flower, Lamp } from '../systems/LevelSim';
 import { lampLook } from '../systems/looks';
 
 /** A lamp qubit: lit 💡, dark, 🌓/🌗 through X glasses, or flickering while undecided. */
@@ -61,5 +61,33 @@ export class FlowerView {
     const p = this.flower.r.p1;
     this.bud.setAlpha(Math.max(0, 1 - p) ** 0.7);
     this.bloom.setAlpha(p ** 0.7);
+  }
+}
+
+/** An unstable core: ☢️, with a 💥 ghost as strong as its chance of having decayed. */
+export class CoreView {
+  private readonly core: Phaser.GameObjects.Image;
+  private readonly boom: Phaser.GameObjects.Image;
+
+  constructor(
+    scene: Phaser.Scene,
+    layer: Phaser.GameObjects.Layer,
+    private readonly state: Core,
+  ) {
+    const x = (state.def.col + 0.5) * CELL;
+    const y = (state.def.row + 0.5) * CELL;
+    this.core = scene.add
+      .image(x, y, emojiTexture(scene, '☢️'))
+      .setDisplaySize(CELL * 0.8, CELL * 0.8);
+    this.boom = scene.add
+      .image(x, y, emojiTexture(scene, '💥'))
+      .setDisplaySize(CELL * 0.9, CELL * 0.9);
+    layer.add([this.core, this.boom]);
+  }
+
+  render(): void {
+    const p = this.state.decayed ? 1 : this.state.r.p1;
+    this.core.setAlpha(Math.max(0, 1 - p) ** 0.7);
+    this.boom.setAlpha(p ** 0.7);
   }
 }

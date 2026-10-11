@@ -20,9 +20,14 @@ export function lineOfSight(a: Vec2, b: Vec2, blocks: SightBlocker): boolean {
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   const steps = Math.ceil(len / STEP);
+  const ac = Math.floor(a.x);
+  const ar = Math.floor(a.y);
   for (let s = 1; s < steps; s++) {
     const t = s / steps;
-    if (blocks(Math.floor(a.x + dx * t), Math.floor(a.y + dy * t))) return false;
+    const c = Math.floor(a.x + dx * t);
+    const r = Math.floor(a.y + dy * t);
+    // The viewer's own cell never blocks (a camera sits in a wall).
+    if ((c !== ac || r !== ar) && blocks(c, r)) return false;
   }
   return true;
 }
@@ -55,8 +60,13 @@ export function castRay(
 ): number {
   const cx = Math.cos(angle);
   const cy = Math.sin(angle);
+  const oc = Math.floor(origin.x);
+  const or = Math.floor(origin.y);
   for (let d = STEP; d < maxDist; d += STEP) {
-    if (blocks(Math.floor(origin.x + cx * d), Math.floor(origin.y + cy * d))) return d;
+    const c = Math.floor(origin.x + cx * d);
+    const r = Math.floor(origin.y + cy * d);
+    // The viewer's own cell never blocks (a camera sits in a wall).
+    if ((c !== oc || r !== or) && blocks(c, r)) return d;
   }
   return maxDist;
 }

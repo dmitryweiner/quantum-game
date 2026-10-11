@@ -389,6 +389,7 @@ export class Ui {
       time: [T().lost, T().lostText],
       'wrong-colour': [T().lostWrongColour, T().lostWrongColourText],
       escaped: [T().lostEscaped, T().lostEscapedText],
+      core: [T().lostCore, T().lostCoreText],
     }[reason];
     this.open(
       [h('h1', {}, text[0]), h('p', {}, text[1])],

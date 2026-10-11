@@ -35,6 +35,12 @@ describe('level definitions', () => {
           case 'chsh':
             expect(level.winCondition.threshold).toBeGreaterThan(0.75);
             break;
+          case 'escape':
+            expect(has('core') && has('exit')).toBe(true);
+            break;
+          case 'zone-after-dark':
+            expect(has('quantum') && has('zone')).toBe(true);
+            break;
         }
       });
 
@@ -217,6 +223,107 @@ describe('chapter 3 playtest', () => {
     const rate = softTouch(1);
     console.log('ch3-02 sharp', rate);
     expect(rate).toBeLessThan(0.22);
+  });
+});
+
+describe('chapter 4 playtest', () => {
+  const ch4 = (id: string) => LEVELS.find((l) => l.id === id)!;
+
+  /** Watch the door's percentage and glance when it peaks (what the HUD label invites). */
+  const peakGlance = (door: Vec2): Strategy => {
+    let prev = 0;
+    return (t, sim) => {
+      if (t === 0) prev = 0;
+      const b = sim.bodies[0]!;
+      const p = b.psi.probability(b.psi.lattice.siteAt(Math.floor(door.x), Math.floor(door.y)));
+      const glance = p < prev && prev >= 0.12;
+      prev = glance ? 0 : p;
+      return glance ? door : null;
+    };
+  };
+
+  it('ch4-01: blinking at the door catches the tunnelling cat', () => {
+    const level = ch4('ch4-01');
+    expect(winRate(level, () => null, 20, 40)).toBe(0);
+    expect(winRate(level, peakGlance(doorOf(level)), 100, 40)).toBeGreaterThan(0.6);
+  });
+
+  it('ch4-01: a field three cells thick lets almost nothing through', () => {
+    const level = ch4('ch4-01');
+    const thick = { ...level, map: level.map.map((r) => r.replace('...%...', '..%%%..')) };
+    expect(winRate(thick, peakGlance(doorOf(thick)), 100, 40)).toBeLessThan(0.1);
+  });
+
+  /** Walk a route of waypoints; optionally keep looking at the core. */
+  function escape(watch: boolean, seed: number): string {
+    const sim = new LevelSim(ch4('ch4-02'), mulberry32(seed));
+    const core = sim.cores[0]!.def;
+    const exit = sim.map.objects.find((o) => o.role === 'exit')!;
+    const route = [
+      { x: 1.5, y: 1.5 },
+      { x: exit.col + 0.5, y: 1.5 },
+      { x: exit.col + 0.5, y: exit.row + 0.5 },
+    ];
+    let leg = 0;
+    while (sim.status === 'playing' && sim.time < 30) {
+      const to = route[Math.min(leg, route.length - 1)]!;
+      const dx = to.x - sim.player.x;
+      const dy = to.y - sim.player.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 0.1 && leg < route.length - 1) leg++;
+      const move = d < 0.05 ? { x: 0, y: 0 } : { x: dx / d, y: dy / d };
+      sim.step(1 / 60, move, watch ? { x: core.col + 0.5, y: core.row + 0.5 } : null);
+    }
+    return sim.status;
+  }
+
+  it('ch4-02: watching the core on the way keeps it intact', () => {
+    let wins = 0;
+    for (let s = 0; s < 60; s++) if (escape(true, s) === 'won') wins++;
+    expect(wins / 60).toBeGreaterThan(0.85);
+  });
+
+  it('ch4-02: walking off without looking lets it decay', () => {
+    let wins = 0;
+    for (let s = 0; s < 60; s++) if (escape(false, s) === 'won') wins++;
+    expect(wins / 60).toBeLessThan(0.15);
+  });
+
+  /** Stand next to the switch; step on it when the door's chance peaks (or always / never). */
+  function remoteEye(mode: 'peak' | 'always' | 'never', seed: number): string {
+    const sim = new LevelSim(ch4('ch4-03'), mulberry32(seed));
+    const sw = sim.map.objects.find((o) => o.role === 'switch')!;
+    const door = sim.map.objects.find((o) => o.role === 'target')!;
+    const body = sim.bodies[0]!;
+    const off = { x: sw.col - 0.5, y: sw.row + 0.5 };
+    const on = { x: sw.col + 0.5, y: sw.row + 0.5 };
+    let prev = 0;
+    let onFor = 0;
+    while (sim.status === 'playing') {
+      const p = body.psi.probability(body.psi.lattice.siteAt(door.col, door.row));
+      const peak = p < prev && prev >= 0.2;
+      prev = p;
+      if (mode === 'always' || (mode === 'peak' && (peak || onFor > 0))) {
+        onFor = onFor > 0 ? onFor - 1 : 2;
+        sim.player = on;
+      } else sim.player = off;
+      sim.step(1 / 60, { x: 0, y: 0 }, null);
+      if (mode !== 'peak') onFor = 0;
+    }
+    return sim.status;
+  }
+
+  it('ch4-03: brief camera flashes at the right moment catch the cat', () => {
+    let wins = 0;
+    for (let s = 0; s < 80; s++) if (remoteEye('peak', s) === 'won') wins++;
+    expect(wins / 80).toBeGreaterThan(0.6);
+  });
+
+  it('ch4-03: a camera left on never lets the cat in (Zeno); off, it never sees it', () => {
+    let wins = 0;
+    for (let s = 0; s < 40; s++) if (remoteEye('always', s) === 'won') wins++;
+    for (let s = 0; s < 40; s++) if (remoteEye('never', s) === 'won') wins++;
+    expect(wins / 80).toBeLessThan(0.1);
   });
 });
 

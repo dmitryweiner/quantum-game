@@ -1,3 +1,4 @@
+import { tileAt } from '../../levels/map';
 import type { EffectId } from '../../strings/effects';
 import { T } from '../../strings/ui';
 import { lampLook, qubitEmoji } from '../systems/looks';
@@ -96,7 +97,40 @@ export function inspectCell(sim: LevelSim, col: number, row: number): InspectInf
     };
   }
 
+  const core = sim.cores.find((c) => at(c.def));
+  if (core) {
+    return {
+      title: s.coreName,
+      state: [core.decayed ? s.coreDecayed : s.coreState(pct(core.r.p1))],
+      why: s.coreWhy,
+      effects: ['zeno', 'collapse'],
+    };
+  }
+  if (sim.cameras.some((c) => at(c.def))) {
+    return {
+      title: s.cameraName(sim.camerasOn),
+      state: [],
+      why: s.cameraWhy,
+      effects: ['decoherence', 'collapse'],
+    };
+  }
+  if (tileAt(sim.map, col, row) === 'barrier') {
+    return { title: s.barrierName, state: [], why: s.barrierWhy, effects: ['tunnelling'] };
+  }
+
   const obj = sim.map.objects.find((o) => at(o) && o.role !== 'quantum' && o.role !== 'zone');
+  if (obj?.role === 'switch') {
+    return { title: s.switchName, state: [], why: s.switchWhy, effects: ['decoherence'] };
+  }
+  if (obj?.role === 'hot') {
+    return { title: s.hotName, state: [], why: s.hotWhy, effects: ['decoherence', 'quantum-walk'] };
+  }
+  if (obj?.role === 'cold') {
+    return { title: s.coldName, state: [], why: s.coldWhy, effects: ['decoherence'] };
+  }
+  if (obj?.role === 'exit') {
+    return { title: s.exitName, state: [], why: s.exitWhy, effects: ['zeno'] };
+  }
   if (obj?.role === 'target') {
     const detector = obj.emoji === '🎯';
     return {

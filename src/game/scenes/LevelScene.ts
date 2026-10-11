@@ -10,7 +10,7 @@ import { BRICK_VARIANTS, brickTexture } from '../textures';
 import { Player } from '../entities/Player';
 import { QuantumObject } from '../entities/QuantumObject';
 import { EntanglementThread, Qubit } from '../entities/Qubit';
-import { FlowerView, LampView } from '../entities/Extras';
+import { CoreView, FlowerView, LampView } from '../entities/Extras';
 import { inspectCell } from '../ui/inspect';
 import { Controls } from '../input/Controls';
 import type { Gaze } from '../input/types';
@@ -48,6 +48,8 @@ export class LevelScene extends Phaser.Scene {
   private chsh: ChshState | null = null;
   private lampViews: LampView[] = [];
   private flowerViews: FlowerView[] = [];
+  private coreViews: CoreView[] = [];
+  private cameraCones: GazeCone[] = [];
   private darkness!: Phaser.GameObjects.Graphics;
   /** 🔍 mode: eyes closed, taps describe objects instead of looking. */
   private inspecting = false;
@@ -86,6 +88,8 @@ export class LevelScene extends Phaser.Scene {
     this.drawObjects();
     this.lampViews = this.sim.lamps.map((l) => new LampView(this, this.worldLayer, l));
     this.flowerViews = this.sim.flowers.map((f) => new FlowerView(this, this.worldLayer, f));
+    this.coreViews = this.sim.cores.map((c) => new CoreView(this, this.worldLayer, c));
+    this.cameraCones = this.sim.cameras.map(() => new GazeCone(this, this.worldLayer));
     this.inspecting = false;
     this.quantum = this.sim.bodies.map((b) => new QuantumObject(this, this.worldLayer, b));
     const [q0, q1] = this.sim.qubits.map((q) => ({
@@ -263,6 +267,15 @@ export class LevelScene extends Phaser.Scene {
     for (const q of this.quantum) q.render(time);
     for (const l of this.lampViews) l.render(this.sim.glasses, time);
     for (const f of this.flowerViews) f.render();
+    for (const c of this.coreViews) c.render();
+    this.sim.cameras.forEach((cam, i) =>
+      this.cameraCones[i]?.draw(
+        cam.cone,
+        this.sim.opaque,
+        this.sim.camerasOn ? COLORS.camera : COLORS.cameraOff,
+        this.sim.camerasOn ? 1 : 0.5,
+      ),
+    );
     this.darkness.clear();
     if (this.sim.phase === 'dark') {
       // Lights out: the room goes dark, but the ghosts stay visible to you, the player.
@@ -339,6 +352,20 @@ export class LevelScene extends Phaser.Scene {
               )
               .setDisplaySize(CELL, CELL),
           );
+        } else if (tile === 'barrier') {
+          // A force field: violet, with ripples.
+          g.fillStyle(COLORS.barrier, 0.45);
+          g.fillRect(x, y, CELL, CELL);
+          g.lineStyle(2, COLORS.barrier, 0.9);
+          for (let k = 1; k <= 3; k++) {
+            const yy = y + (k * CELL) / 4;
+            g.beginPath();
+            g.moveTo(x, yy);
+            for (let t = 0; t <= 8; t++) {
+              g.lineTo(x + (t * CELL) / 8, yy + Math.sin(t * 1.6 + k) * 3);
+            }
+            g.strokePath();
+          }
         } else if (tile === 'glass') {
           g.fillStyle(COLORS.glass, 0.12);
           g.fillRect(x, y, CELL, CELL);
@@ -365,7 +392,20 @@ export class LevelScene extends Phaser.Scene {
         this.worldLayer.add(g);
         continue;
       }
-      if (['quantum', 'qubit', 'lamp', 'flower'].includes(obj.role)) continue;
+      if (obj.role === 'hot' || obj.role === 'cold') {
+        const g = this.add.graphics();
+        g.fillStyle(obj.role === 'hot' ? COLORS.hot : COLORS.cold, 0.22);
+        g.fillRect(obj.col * CELL + 1, obj.row * CELL + 1, CELL - 2, CELL - 2);
+        this.worldLayer.add(g);
+        this.worldLayer.add(
+          this.add
+            .image((obj.col + 0.5) * CELL, (obj.row + 0.5) * CELL, emojiTexture(this, obj.emoji))
+            .setDisplaySize(CELL * 0.45, CELL * 0.45)
+            .setAlpha(0.6),
+        );
+        continue;
+      }
+      if (['quantum', 'qubit', 'lamp', 'flower', 'core'].includes(obj.role)) continue;
       const x = (obj.col + 0.5) * CELL;
       const y = (obj.row + 0.5) * CELL;
       if (obj.role === 'target') {

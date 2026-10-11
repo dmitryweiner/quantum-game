@@ -4,10 +4,12 @@ const EN = {
   title: 'Quantum Game',
   tagline: 'You are the observer. Looking changes things.',
   chapter: (n: number) => `Chapter ${n}`,
-  chapterTitles: { 1: 'The Observer Effect', 2: 'Spooky Action', 3: 'Uncertainty' } as Record<
-    number,
-    string
-  >,
+  chapterTitles: {
+    1: 'The Observer Effect',
+    2: 'Spooky Action',
+    3: 'Uncertainty',
+    4: 'Other Observers',
+  } as Record<number, string>,
   sandbox: 'Sandbox',
   sandboxNote: 'Free play, no goal',
   start: 'Start',
@@ -23,6 +25,7 @@ const EN = {
     'catch-at-target': 'Caught it! 🎉',
     unlock: 'Unlocked! 🔓',
     'zone-after-dark': 'Still in the ring! 🎉',
+    escape: 'Out, core intact! 🏁',
     chsh: 'Telepathy confirmed! 🎉',
   },
   lost: 'Time’s up ⏳',
@@ -36,6 +39,9 @@ const EN = {
   lostEscaped: 'The atom left the ring 💨',
   lostEscapedText:
     'The detector found it outside. Your look pinned it down too precisely — and gave it a kick. Try a gentler, blurrier look.',
+  lostCore: 'The core decayed 💥',
+  lostCoreText:
+    'Left unwatched, the core slid towards decay — and a look found it gone. Keep it in sight the whole time; brief glances away are fine.',
   lightsOut: '🌑 Lights out',
   focusLabel: 'Focus of your look',
   focusBlurry: '☁️ blurry',
@@ -93,6 +99,27 @@ const EN = {
     zoneName: 'Ring',
     zoneWhy:
       'A trap holds the atom still until you first look at it. After the dark, a detector checks that the atom is still inside.',
+    barrierName: 'Force field',
+    barrierWhy:
+      'You cannot walk through it and nothing classical can. A quantum wave leaks a little way into it, so through a thin field part of it comes out the other side — tunnelling. Two cells thick, almost nothing gets through.',
+    cameraName: (on: boolean) => `Camera 📷 — ${on ? 'on' : 'off'}`,
+    cameraWhy:
+      'Another observer. Whatever it sees collapses just as if you had looked: this is decoherence — the world keeps measuring things, which is why big objects look classical.',
+    switchName: 'Camera switch 🔘',
+    switchWhy: 'The cameras watch only while you stand on it.',
+    hotName: 'Hot cell 🔥',
+    hotWhy:
+      'Heat is countless tiny collisions; now and then one of them records where an object is. A quantum object crossing hot cells keeps getting collapsed, so it creeps like a random walker instead of travelling as a wave.',
+    coldName: 'Cold cell ❄️',
+    coldWhy:
+      'Nothing here bumps into quantum objects, so their superpositions survive. Quantum computers are kept this cold.',
+    coreName: 'Unstable core ☢️',
+    coreState: (p: string) => `Chance it has decayed if you look now: ${p}.`,
+    coreDecayed: 'Decayed 💥',
+    coreWhy:
+      'Unwatched, it slides towards decay. Each look finds it intact (most likely) and resets the slide — watched constantly, it never gets started (the quantum Zeno effect).',
+    exitName: 'Exit 🏁',
+    exitWhy: 'Walk here to leave. The cores get one last look when you arrive.',
     playerName: 'You, the observer 👁️',
     playerWhy: 'Your look is a measurement. Close your eyes and things stop being definite.',
     percent: (p: number) => `${Math.round(p * 100)}%`,
@@ -132,7 +159,12 @@ const RU: Strings = {
   title: 'Quantum Game',
   tagline: 'Ты — наблюдатель. Твой взгляд меняет мир.',
   chapter: (n: number) => `Глава ${n}`,
-  chapterTitles: { 1: 'Эффект наблюдателя', 2: 'Жуткое дальнодействие', 3: 'Неопределённость' },
+  chapterTitles: {
+    1: 'Эффект наблюдателя',
+    2: 'Жуткое дальнодействие',
+    3: 'Неопределённость',
+    4: 'Чужие наблюдатели',
+  },
   sandbox: 'Песочница',
   sandboxNote: 'Свободная игра без цели',
   start: 'Начать',
@@ -148,6 +180,7 @@ const RU: Strings = {
     'catch-at-target': 'Поймал! 🎉',
     unlock: 'Открыто! 🔓',
     'zone-after-dark': 'Атом в кольце! 🎉',
+    escape: 'Выбрался, ядро цело! 🏁',
     chsh: 'Телепатия подтверждена! 🎉',
   },
   lost: 'Время вышло ⏳',
@@ -163,6 +196,9 @@ const RU: Strings = {
   lostEscaped: 'Атом покинул кольцо 💨',
   lostEscapedText:
     'Детектор нашёл его снаружи. Твой взгляд зафиксировал атом слишком точно — и толкнул его. Попробуй посмотреть мягче, размыто.',
+  lostCore: 'Ядро распалось 💥',
+  lostCoreText:
+    'Без присмотра ядро скатилось к распаду, и взгляд застал его уже распавшимся. Держи его в поле зрения всё время; короткие отлучки не страшны.',
   lightsOut: '🌑 Свет погас',
   focusLabel: 'Фокус взгляда',
   focusBlurry: '☁️ размыто',
@@ -220,6 +256,27 @@ const RU: Strings = {
     zoneName: 'Кольцо',
     zoneWhy:
       'Ловушка держит атом неподвижным, пока ты впервые на него не посмотришь. После темноты детектор проверит, остался ли атом внутри.',
+    barrierName: 'Силовое поле',
+    barrierWhy:
+      'Сквозь него не пройти, и ничему классическому тоже. А квантовая волна немного затекает внутрь, поэтому сквозь тонкое поле часть её выходит с другой стороны — это туннелирование. Сквозь поле толщиной в две клетки почти ничего не проходит.',
+    cameraName: (on: boolean) => `Камера 📷 — ${on ? 'включена' : 'выключена'}`,
+    cameraWhy:
+      'Ещё один наблюдатель. Всё, что она видит, схлопывается так же, как от твоего взгляда. Это декогеренция: мир постоянно что-то измеряет, поэтому большие предметы выглядят классическими.',
+    switchName: 'Выключатель камер 🔘',
+    switchWhy: 'Камеры следят, только пока ты стоишь на кнопке.',
+    hotName: 'Горячая клетка 🔥',
+    hotWhy:
+      'Тепло — это бесчисленные мелкие столкновения, и время от времени какое-нибудь из них фиксирует, где объект. Квантовый объект на горячих клетках то и дело схлопывается и ползёт, как случайный бродяга, а не бежит волной.',
+    coldName: 'Холодная клетка ❄️',
+    coldWhy:
+      'Здесь ничто не задевает квантовые объекты, и их суперпозиции сохраняются. Квантовые компьютеры держат именно в таком холоде.',
+    coreName: 'Нестабильное ядро ☢️',
+    coreState: (p: string) => `Шанс, что оно распалось, если посмотреть сейчас: ${p}.`,
+    coreDecayed: 'Распалось 💥',
+    coreWhy:
+      'Без присмотра ядро скатывается к распаду. Каждый взгляд (скорее всего) застаёт его целым и обнуляет этот путь; под постоянным взглядом распад так и не начинается (квантовый эффект Зенона).',
+    exitName: 'Выход 🏁',
+    exitWhy: 'Дойди сюда, чтобы выйти. На выходе ядра проверят в последний раз.',
     playerName: 'Ты, наблюдатель 👁️',
     playerWhy: 'Твой взгляд — это измерение. Закрой глаза, и всё перестаёт быть определённым.',
     percent: (p: number) => `${Math.round(p * 100)}%`,

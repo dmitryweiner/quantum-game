@@ -13,13 +13,13 @@ export class GazeCone {
     layer.add(this.gfx);
   }
 
-  draw(cone: Cone | null, blocks: SightBlocker, colour: number = COLORS.gaze): void {
+  draw(cone: Cone | null, blocks: SightBlocker, colour: number = COLORS.gaze, alpha = 1): void {
     const g = this.gfx;
     g.clear();
     if (!cone) return;
     const { origin } = cone;
-    g.fillStyle(colour, 0.16);
-    g.lineStyle(2, colour, 0.35);
+    g.fillStyle(colour, 0.16 * alpha);
+    g.lineStyle(2, colour, 0.35 * alpha);
     g.beginPath();
     g.moveTo(origin.x * CELL, origin.y * CELL);
     for (let i = 0; i <= RAYS; i++) {

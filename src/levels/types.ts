@@ -13,6 +13,8 @@ export type WinCondition =
    * Must succeed `rounds` times in a row.
    */
   | { type: 'zone-after-dark'; look: number; dark: number; rounds: number }
+  /** Reach the exit 🏁; every core ☢️ must still be intact when checked there. */
+  | { type: 'escape' }
   /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */
   | { type: 'chsh'; rounds: number; threshold: number };
 
@@ -44,6 +46,10 @@ export interface LevelDef {
   focus?: boolean;
   /** Show only this many central cells (the rest of a big room is off-screen). */
   view?: { cols: number; rows: number };
+  /** How far the observer can see, cells (default 4.5; 8 with `focus`). */
+  gazeRange?: number;
+  /** Unstable cores: radians per second of their swing towards decay (default π/10). */
+  coreRate?: number;
   /** Targets are automatic detectors that click this many times per second at most. */
   detectorRate?: number;
 }

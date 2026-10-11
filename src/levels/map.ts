@@ -3,8 +3,13 @@
  * unknown characters are a hard error so typos are caught by tests.
  */
 
-/** Walls stop everything; glass stops movement but not sight. */
-export type TileKind = 'floor' | 'wall' | 'glass';
+/**
+ * Walls stop everything; glass stops movement but not sight; a barrier (a
+ * force field) stops you and your look, but a quantum object can tunnel
+ * through it. (If you could look inside it, a look could catch the object in
+ * the middle of the field and help it across.)
+ */
+export type TileKind = 'floor' | 'wall' | 'glass' | 'barrier';
 
 /**
  * - `quantum`: lives in superposition when unobserved (the cat).
@@ -14,10 +19,28 @@ export type TileKind = 'floor' | 'wall' | 'glass';
  * - `lamp`: a single qubit, on/off (Z) or 🌓/🌗 (X).
  * - `flower`: a two-level system that blooms by itself unless watched (Zeno).
  * - `zone`: a cell of the ring the atom must stay in.
+ * - `camera`: another observer, watching in direction `facing` (on a wall).
+ * - `switch`: a pressure plate; cameras are on only while you stand on it.
+ * - `hot` / `cold`: the environment measures objects on hot cells now and then.
+ * - `core`: an unstable core that decays unless watched (Zeno).
+ * - `exit`: walk here to finish an 'escape' level.
  * - `decor`: just a picture.
  */
 export type ObjectRole =
-  'quantum' | 'target' | 'qubit' | 'plate' | 'lamp' | 'flower' | 'zone' | 'decor';
+  | 'quantum'
+  | 'target'
+  | 'qubit'
+  | 'plate'
+  | 'lamp'
+  | 'flower'
+  | 'zone'
+  | 'camera'
+  | 'switch'
+  | 'hot'
+  | 'cold'
+  | 'core'
+  | 'exit'
+  | 'decor';
 
 /** Glasses: Z shows 🔴/🔵, X shows 🟢/🟠. */
 export type Basis = 'Z' | 'X';
@@ -27,6 +50,8 @@ export interface MapObject {
   role: ObjectRole;
   /** For `qubit`: which side of the pair. */
   side?: 0 | 1;
+  /** For `camera`: viewing direction, radians (0 = right, y down). */
+  facing?: number;
   /** For `quantum`: start as a wave packet of this width (cells) instead of one cell. */
   spread?: number;
   /** For `plate`: the colour it asks the lock to check. */
@@ -76,6 +101,16 @@ export const LEGEND: Readonly<Record<string, LegendEntry>> = {
   K: { tile: 'floor', object: { role: 'decor', emoji: '🔒' } },
   R: { tile: 'floor', object: { role: 'decor', emoji: '🤖' } },
   J: { tile: 'floor', object: { role: 'decor', emoji: '🧑‍⚖️' } },
+  '%': { tile: 'barrier' },
+  n: { tile: 'floor', object: { role: 'core', emoji: '☢️' } },
+  x: { tile: 'floor', object: { role: 'exit', emoji: '🏁' } },
+  s: { tile: 'floor', object: { role: 'switch', emoji: '🔘' } },
+  F: { tile: 'floor', object: { role: 'hot', emoji: '🔥' } },
+  I: { tile: 'floor', object: { role: 'cold', emoji: '❄️' } },
+  '>': { tile: 'wall', object: { role: 'camera', emoji: '📷', facing: 0 } },
+  '<': { tile: 'wall', object: { role: 'camera', emoji: '📷', facing: Math.PI } },
+  v: { tile: 'wall', object: { role: 'camera', emoji: '📷', facing: Math.PI / 2 } },
+  '^': { tile: 'wall', object: { role: 'camera', emoji: '📷', facing: -Math.PI / 2 } },
 };
 
 export function parseMap(lines: readonly string[]): ParsedMap {
@@ -113,19 +148,30 @@ export function tileAt(map: ParsedMap, col: number, row: number): TileKind {
   return map.tiles[row]?.[col] ?? 'wall';
 }
 
-/** Blocks movement (walls and glass). */
+/** Blocks movement (walls, glass and barriers). */
 export function isSolid(map: ParsedMap, col: number, row: number): boolean {
   return tileAt(map, col, row) !== 'floor';
 }
 
-/** Blocks sight (walls only). */
+/** Where a quantum object's wave can be: floor, and barriers it tunnels into. */
+export function isWaveOpen(map: ParsedMap, col: number, row: number): boolean {
+  const t = tileAt(map, col, row);
+  return t === 'floor' || t === 'barrier';
+}
+
+/** Blocks sight (walls and barriers). */
 export function blocksSight(map: ParsedMap, col: number, row: number): boolean {
-  return tileAt(map, col, row) === 'wall';
+  const t = tileAt(map, col, row);
+  return t === 'wall' || t === 'barrier';
 }
 
 /** Swaps rows and columns, so a wide level can be shown tall on a portrait screen. */
 export function transposeMap(lines: readonly string[]): string[] {
+  // Cameras look the other way round once rows and columns swap.
+  const swap: Record<string, string> = { '>': 'v', v: '>', '<': '^', '^': '<' };
   const rows = lines.map((l) => [...l]);
   const cols = rows[0]?.length ?? 0;
-  return Array.from({ length: cols }, (_, c) => rows.map((r) => r[c] ?? '').join(''));
+  return Array.from({ length: cols }, (_, c) =>
+    rows.map((r) => swap[r[c] ?? ''] ?? r[c] ?? '').join(''),
+  );
 }

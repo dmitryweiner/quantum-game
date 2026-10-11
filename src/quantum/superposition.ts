@@ -17,8 +17,8 @@ export type MeasureOutcome =
  * Wave function of one object on a lattice.
  *
  * Unobserved, it evolves as a continuous-time quantum walk:
- * i dψ/dt = -γ·A·ψ, where A is the lattice adjacency matrix and γ the hopping
- * rate. Amplitudes are complex, so spreading branches interfere; nothing
+ * i dψ/dt = (-γ·A + V)·ψ, where A is the lattice adjacency matrix, γ the
+ * hopping rate and V an on-site potential (barriers to tunnel through). Amplitudes are complex, so spreading branches interfere; nothing
  * here is a random walk.
  *
  * Observation is a projective measurement of "is the object inside the seen
@@ -35,11 +35,15 @@ export class Superposition {
   private readonly tmpRe: Float64Array;
   private readonly tmpIm: Float64Array;
 
+  /** On-site potential V per site (1/s): high V is a barrier the wave can only tunnel through. */
+  readonly potential: Float64Array;
+
   constructor(
     readonly lattice: Lattice,
     startSite: number,
     /** Hopping rate γ, in 1/s. */
     readonly hopRate: number,
+    potential?: ArrayLike<number>,
   ) {
     const n = lattice.size;
     this.re = new Float64Array(n);
@@ -48,6 +52,7 @@ export class Superposition {
     this.kIm = [0, 1, 2, 3].map(() => new Float64Array(n));
     this.tmpRe = new Float64Array(n);
     this.tmpIm = new Float64Array(n);
+    this.potential = Float64Array.from(potential ?? new Array<number>(n).fill(0));
     this.collapseTo(startSite);
   }
 
@@ -106,7 +111,10 @@ export class Superposition {
   /** Advances the unobserved evolution by `dt` seconds (RK4 sub-steps). */
   evolve(dt: number): void {
     if (dt <= 0) return;
-    const maxStep = 0.05 / Math.max(this.hopRate, 1e-9);
+    // Step small enough for both hopping and the highest barrier.
+    let vMax = 0;
+    for (const v of this.potential) vMax = Math.max(vMax, Math.abs(v));
+    const maxStep = 0.05 / Math.max(this.hopRate, vMax / 4, 1e-9);
     const steps = Math.ceil(dt / maxStep);
     const h = dt / steps;
     for (let s = 0; s < steps; s++) this.rk4(h);
@@ -230,7 +238,7 @@ export class Superposition {
     }
   }
 
-  /** out = -i·H·ψ with H = -γA, i.e. out = iγ·A·ψ. */
+  /** out = -i·H·ψ with H = -γA + V, i.e. out = iγ·A·ψ - i·V·ψ. */
   private derivative(
     re: Float64Array,
     im: Float64Array,
@@ -247,9 +255,10 @@ export class Superposition {
         sr += re[j]!;
         si += im[j]!;
       }
-      // i·γ·(sr + i·si) = -γ·si + i·γ·sr
-      outRe[i] = -g * si;
-      outIm[i] = g * sr;
+      // i·γ·(sr + i·si) = -γ·si + i·γ·sr;  -i·V·(re + i·im) = V·im - i·V·re
+      const v = this.potential[i]!;
+      outRe[i] = -g * si + v * im[i]!;
+      outIm[i] = g * sr - v * re[i]!;
     }
   }
 

@@ -9,7 +9,7 @@ describe('inspect', () => {
   const sim = new LevelSim(SANDBOX, mulberry32(1));
 
   it('describes every quantum object in the sandbox', () => {
-    const roles = ['quantum', 'qubit', 'lamp', 'flower'];
+    const roles = ['quantum', 'qubit', 'lamp', 'flower', 'core', 'camera', 'hot', 'cold'];
     for (const o of sim.map.objects.filter((o) => roles.includes(o.role))) {
       const info = inspectCell(sim, o.col, o.row);
       expect(info, `${o.char} at ${o.col},${o.row}`).not.toBeNull();
