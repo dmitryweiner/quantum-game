@@ -62,6 +62,6 @@ export const CHAPTER_1: LevelDef[] = [
       '#################',
     ],
     winCondition: { type: 'catch-at-target' },
-    timeLimit: 12,
+    timeLimit: 20,
   },
 ];

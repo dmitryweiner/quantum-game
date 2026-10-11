@@ -7,6 +7,7 @@ import { UI } from '../../strings/ui';
 import { CELL, COLORS, UI_FONT } from '../constants';
 import { px } from '../display';
 import { emojiTexture } from '../emoji';
+import { BRICK_VARIANTS, brickTexture } from '../textures';
 import { Player } from '../entities/Player';
 import { QuantumObject } from '../entities/QuantumObject';
 import { Controls } from '../input/Controls';
@@ -171,7 +172,6 @@ export class LevelScene extends Phaser.Scene {
   private drawMap(): void {
     const g = this.add.graphics();
     this.worldLayer.add(g);
-    const wallKey = emojiTexture(this, '🧱');
     const { map } = this.sim;
     for (let row = 0; row < map.rows; row++) {
       for (let col = 0; col < map.cols; col++) {
@@ -180,7 +180,13 @@ export class LevelScene extends Phaser.Scene {
         const tile = map.tiles[row]![col]!;
         if (tile === 'wall') {
           this.worldLayer.add(
-            this.add.image(x + CELL / 2, y + CELL / 2, wallKey).setDisplaySize(CELL, CELL),
+            this.add
+              .image(
+                x + CELL / 2,
+                y + CELL / 2,
+                brickTexture(this, (col * 7 + row * 3) % BRICK_VARIANTS),
+              )
+              .setDisplaySize(CELL, CELL),
           );
         } else if (tile === 'glass') {
           g.fillStyle(COLORS.glass, 0.12);
