@@ -442,3 +442,15 @@
   touch-action: none;
   user-select: none;
 }
+
+/* The last seconds of a timed level. */
+.hud .timer.urgent {
+  color: var(--bad, #ff6b6b);
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}

@@ -36,6 +36,8 @@ const EN = {
     'A puzzle game about the quantum world: superposition, measurement, entanglement, uncertainty, tunnelling and interference — with no formulas, but with honest physics underneath.',
     'Open source under GPL-3.0: github.com/dmitryweiner/quantum-game. Sounds are synthesised in the browser; emoji come from your device’s font.',
   ],
+  timeLeft: (s: number) => `⏱ ${s} s`,
+  timeLimit: (s: number) => `⏱ Time limit: ${s} seconds — it starts when you press Start.`,
   freePlay: 'Free play',
   arcade: {
     best: (n: number) => `🏆 ${n}`,
@@ -284,6 +286,9 @@ const RU: Strings = {
     'Головоломка о квантовом мире: суперпозиция, измерение, запутанность, неопределённость, туннелирование и интерференция — без формул, но с честной физикой внутри.',
     'Открытый код под лицензией GPL-3.0: github.com/dmitryweiner/quantum-game. Звуки синтезируются прямо в браузере, эмодзи — из шрифта вашего устройства.',
   ],
+  timeLeft: (s: number) => `⏱ ${s} с`,
+  timeLimit: (s: number) =>
+    `⏱ На уровень ${s} ${ruPlural(s, 'секунда', 'секунды', 'секунд')} — отсчёт начнётся после «Начать».`,
   freePlay: 'Свободная игра',
   arcade: {
     best: (n: number) => `🏆 ${n}`,

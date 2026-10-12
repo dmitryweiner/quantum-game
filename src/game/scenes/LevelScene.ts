@@ -3,6 +3,7 @@ import { levelById, nextLevel } from '../../levels';
 import { SANDBOX } from '../../levels/sandbox';
 import type { LevelDef } from '../../levels/types';
 import { mulberry32 } from '../../quantum/rng';
+import { T } from '../../strings/ui';
 import { CELL, COLORS, UI_FONT } from '../constants';
 import { px } from '../display';
 import { emojiTexture } from '../emoji';
@@ -351,7 +352,7 @@ export class LevelScene extends Phaser.Scene {
   private status(): number | string | null {
     const cond = this.level.winCondition;
     if (cond.type === 'light-lamp') {
-      return `💡 ${this.sim.lampHits}/${cond.hits} · ${Math.ceil(this.sim.timeLeft ?? 0)}`;
+      return `💡 ${this.sim.lampHits}/${cond.hits} · ${T().timeLeft(Math.ceil(this.sim.timeLeft ?? 0))}`;
     }
     if (cond.type !== 'zone-after-dark') return this.sim.timeLeft;
     const round = `${this.sim.roundsDone + 1}/${cond.rounds}`;

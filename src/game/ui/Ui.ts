@@ -193,9 +193,15 @@ export class Ui {
   }
 
   /** Countdown in seconds, a short status text, or nothing. */
+  /**
+   * A countdown in seconds (shown as "⏱ 14 s", red in the last 5 s), a
+   * status text, or nothing.
+   */
   setTimer(value: number | string | null): void {
+    const urgent = typeof value === 'number' && value <= 5;
     this.hudTimer.textContent =
-      value === null ? '' : typeof value === 'number' ? String(Math.ceil(value)) : value;
+      value === null ? '' : typeof value === 'number' ? T().timeLeft(Math.ceil(value)) : value;
+    this.hudTimer.classList.toggle('urgent', urgent);
   }
 
   /** The "classical mode" notice under the HUD, or none. */
@@ -468,6 +474,7 @@ export class Ui {
         h('p', {}, tr(level.goal)),
         level.hint && h('p', { class: 'hint' }, tr(level.hint)),
         h('p', { class: 'muted' }, touch ? T().controlsTouch : T().controlsDesktop),
+        level.timeLimit !== undefined && h('p', { class: 'big' }, T().timeLimit(level.timeLimit)),
         level.glasses && h('p', { class: 'hint' }, T().glassesHint),
         level.focus && h('p', { class: 'hint' }, T().focusHint),
         level.chapter > 0 && h('h2', {}, T().whyClassicalFails),

@@ -27,11 +27,11 @@ export const DIR_ANGLE: Readonly<Record<Dir, number>> = {
 
 /** Tunable numbers of the quantum snake (PLAN.md §9.1). */
 export const SNAKE = {
-  /** Seconds per step at the start, and the fastest it gets. */
-  startTick: 0.22,
-  minTick: 0.1,
-  /** Each apple makes the snake this much faster (multiplier). */
-  speedUp: 0.96,
+  /** Seconds per step at the start (calm), and the fastest it gets. */
+  startTick: 0.34,
+  minTick: 0.12,
+  /** Each apple — one more segment — makes a step this much shorter (multiplier). */
+  speedUp: 0.95,
   /** How fast an unwatched apple spreads (hopping rate γ, 1/s). */
   appleHop: 0.6,
   /** The head's view: range in cells and half-angle. */
