@@ -45,6 +45,29 @@ const EN = {
     record: 'New record! 🏆',
     again: '↻ Play again',
     quantumTitle: 'What is quantum here',
+    quantris: {
+      title: 'Quantris',
+      menu: '🧩 Quantris',
+      goal: 'Clear lines — some pieces fall in two places at once',
+      hud: (score: number, lines: number, looks: number, best: number) =>
+        `⭐ ${score} · ☰ ${lines} · 👁 ${looks} · 🏆 ${best}`,
+      rules: [
+        'A glowing piece is in two places at once — the percentages are the chances of each.',
+        'Touching the stack is a measurement: the piece turns out to be in one of its places, at random but by those chances. If it is not the place that touched, it falls on.',
+        'Press 👁 to look and settle it early. Looks are few; each cleared line gives one back.',
+        'Push both places against a wall until they meet: two identical places are one — the piece becomes certain.',
+      ],
+      controlsTouch: 'Buttons below: move, rotate, drop, look.',
+      controlsDesktop: '← → move · ↑ rotate · ↓ down · Space drop · L look.',
+      aria: {
+        left: 'Move left',
+        right: 'Move right',
+        rotate: 'Rotate',
+        down: 'Drop',
+        look: 'Look',
+      },
+      next: 'Next',
+    },
     tanks: {
       title: 'Quantum Tanks',
       menu: '🛡️ Quantum Tanks',
@@ -270,6 +293,29 @@ const RU: Strings = {
     record: 'Новый рекорд! 🏆',
     again: '↻ Ещё раз',
     quantumTitle: 'Что здесь квантового',
+    quantris: {
+      title: 'Квантрис',
+      menu: '🧩 Квантрис',
+      goal: 'Собирай линии — некоторые фигуры падают сразу в двух местах',
+      hud: (score: number, lines: number, looks: number, best: number) =>
+        `⭐ ${score} · ☰ ${lines} · 👁 ${looks} · 🏆 ${best}`,
+      rules: [
+        'Светящаяся фигура находится сразу в двух местах — проценты показывают шанс каждого.',
+        'Касание кучи — это измерение: фигура оказывается в одном из мест, случайно, но с этими шансами. Если это не то место, что коснулось, она падает дальше.',
+        'Нажми 👁, чтобы посмотреть и определить фигуру заранее. Взглядов мало; каждая собранная линия даёт ещё один.',
+        'Упри оба места в стену, пока они не совпадут: два одинаковых места — это одно, и фигура становится определённой.',
+      ],
+      controlsTouch: 'Кнопки внизу: сдвиг, поворот, бросок, взгляд.',
+      controlsDesktop: '← → сдвиг · ↑ поворот · ↓ вниз · Пробел — бросок · L — взгляд.',
+      aria: {
+        left: 'Влево',
+        right: 'Вправо',
+        rotate: 'Повернуть',
+        down: 'Бросить',
+        look: 'Посмотреть',
+      },
+      next: 'Дальше',
+    },
     tanks: {
       title: 'Квантовые танки',
       menu: '🛡️ Квантовые танки',

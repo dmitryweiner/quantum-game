@@ -4,6 +4,7 @@ import { viewportSize, DPR } from './game/display';
 import { BootScene } from './game/scenes/BootScene';
 import { LevelScene } from './game/scenes/LevelScene';
 import { SnakeScene } from './game/scenes/SnakeScene';
+import { QuantrisScene } from './game/scenes/QuantrisScene';
 import { TanksScene } from './game/scenes/TanksScene';
 
 installAudioUnlock();
@@ -22,7 +23,7 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   disableContextMenu: true,
-  scene: [BootScene, LevelScene, SnakeScene, TanksScene],
+  scene: [BootScene, LevelScene, SnakeScene, TanksScene, QuantrisScene],
 });
 
 const onResize = () => {

@@ -144,6 +144,7 @@ export class LevelScene extends Phaser.Scene {
     overlay.closeScreen();
     overlay.setHud(this.level);
     overlay.setLevelTools(true);
+    overlay.setArcadeButtons(null);
     // The HUD is now visible: lay the map out below its real height right away.
     this.layout();
     overlay.setTimer(this.sim.timeLeft);

@@ -419,3 +419,26 @@
 .panel .rules li {
   margin: 4px 0;
 }
+
+/* Arcade touch buttons along the bottom edge. */
+.arcade-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  pointer-events: none;
+}
+
+.arcade-btn {
+  pointer-events: auto;
+  flex: 1;
+  max-width: 76px;
+  min-height: 56px;
+  font-size: 24px;
+  touch-action: none;
+  user-select: none;
+}

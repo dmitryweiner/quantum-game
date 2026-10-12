@@ -7,10 +7,11 @@ observer 👁️ — and the very act of looking changes what happens.
 
 Game design, architecture and milestones: [PLAN.md](PLAN.md).
 
-Five chapters are playable — the observer effect, entanglement and the CHSH game,
-the uncertainty principle, tunnelling and other observers, interference and the
-bomb tester — plus a sandbox where 🔍 explains every object. Works offline once
-added to the home screen.
+Free play first: the sandbox, where 🔍 explains every object, and three quantum
+arcades built on it — Quantum Snake, Quantum Tanks and Quantris. Then five
+chapters of puzzles: the observer effect, entanglement and the CHSH game, the
+uncertainty principle, tunnelling and other observers, and interference. Works
+offline once added to the home screen.
 
 ## Controls
 

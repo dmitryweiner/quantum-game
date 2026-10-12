@@ -37,6 +37,7 @@ export class Ui {
   private readonly focusSharp: HTMLElement;
   private glassesMode: Basis | null = null;
   private banner: HTMLElement | null = null;
+  private buttonBar: HTMLElement | null = null;
   private onSwitch: (() => void) | null = null;
   /** Name of the open panel, so background updates only redraw their own panel. */
   private screenName = '';
@@ -381,7 +382,7 @@ export class Ui {
         'ul',
         { class: 'level-list' },
         h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
-        ...(['snake', 'tanks'] as const).map((id) =>
+        ...(['snake', 'tanks', 'quantris'] as const).map((id) =>
           h(
             'li',
             {},
@@ -606,6 +607,49 @@ export class Ui {
       ],
       () => this.showArcadeOver(score, best, record, onAgain, onMenu),
     );
+  }
+
+  /**
+   * A bar of big buttons at the bottom (arcade touch controls), or none.
+   * `repeat` buttons fire again while held, like a held key.
+   */
+  setArcadeButtons(
+    buttons: { label: string; aria: string; press: () => void; repeat?: boolean }[] | null,
+  ): void {
+    this.buttonBar?.remove();
+    this.buttonBar = null;
+    if (!buttons) return;
+    const bar = h('div', { class: 'arcade-bar' });
+    for (const b of buttons) {
+      const el = h('button', { class: 'btn arcade-btn', 'aria-label': b.aria }, b.label);
+      let timer: number | undefined;
+      const stop = () => {
+        window.clearTimeout(timer);
+        timer = undefined;
+      };
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        b.press();
+        if (!b.repeat) return;
+        const again = (delay: number) => {
+          timer = window.setTimeout(() => {
+            b.press();
+            again(70);
+          }, delay);
+        };
+        again(200);
+      });
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
+        el.addEventListener(ev, stop);
+      bar.append(el);
+    }
+    this.buttonBar = bar;
+    this.root.append(bar);
+  }
+
+  /** Height of the arcade button bar in CSS pixels (0 if none). */
+  buttonBarHeight(): number {
+    return this.buttonBar ? this.buttonBar.getBoundingClientRect().height + 8 : 0;
   }
 
   /** Arcades have no 🔍 button of their own yet. */

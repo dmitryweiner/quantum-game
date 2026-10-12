@@ -5,6 +5,7 @@ import { ui } from './ui';
 export const ARCADE_SCENES: Readonly<Record<string, string>> = {
   'arcade:snake': 'Snake',
   'arcade:tanks': 'Tanks',
+  'arcade:quantris': 'Quantris',
 };
 
 /**
