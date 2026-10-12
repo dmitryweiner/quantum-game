@@ -21,6 +21,8 @@ export default defineConfig(({ command, isPreview }) => ({
   server: { host: true },
   test: {
     include: ['tests/**/*.test.ts'],
+    // Simulation playtests play hundreds of games; CI machines are slower.
+    testTimeout: 60_000,
     environment: 'node',
   },
 }));
