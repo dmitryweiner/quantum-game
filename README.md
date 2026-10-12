@@ -5,10 +5,13 @@ observer 👁️ — and the very act of looking changes what happens.
 
 **Play:** https://dmitryweiner.github.io/quantum-game/
 
+Direct links: `#snake`, `#ships`, `#quantris`, `#sandbox`, or a level id such as
+`#ch1-02` (e.g. https://dmitryweiner.github.io/quantum-game/#snake).
+
 Game design, architecture and milestones: [PLAN.md](PLAN.md).
 
 Free play first: the sandbox, where 🔍 explains every object, and three quantum
-arcades built on it — Quantum Snake, Quantum Tanks and Quantris. Then five
+arcades built on it — Quantum Snake, Quantum Starships and Quantris. Then five
 chapters of puzzles: the observer effect, entanglement and the CHSH game, the
 uncertainty principle, tunnelling and other observers, and interference. Works
 offline once added to the home screen.

@@ -10,17 +10,19 @@ import { px } from '../display';
 import { emojiTexture } from '../emoji';
 import { QuantumObject } from '../entities/QuantumObject';
 import { Controls } from '../input/Controls';
-import { openMainMenu } from '../menu';
+import { openMainMenu, setHash } from '../menu';
 import { fitCamera } from '../render/tiles';
 import { GazeCone } from '../systems/GazeCone';
-import { BRICK_VARIANTS, brickTexture } from '../textures';
 import { ui } from '../ui';
 import { bestScore, saveBest } from '../ui/progress';
 
 const EFFECTS: EffectId[] = ['superposition', 'collapse', 'zeno', 'negative-result', 'tunnelling'];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 
-/** Quantum Tanks (PLAN.md §9.2): renders TankGame, twin-stick or mouse control. */
+/**
+ * Quantum Starships (PLAN.md §9.2; the logic is still called TankGame):
+ * renders it, twin-stick or mouse control.
+ */
 export class TanksScene extends Phaser.Scene {
   private tanks!: TankGame;
   private world!: Phaser.GameObjects.Layer;
@@ -31,6 +33,7 @@ export class TanksScene extends Phaser.Scene {
   private enemies = new Map<number, QuantumObject>();
   private bricks = new Map<string, Phaser.GameObjects.Image>();
   private gfx!: Phaser.GameObjects.Graphics;
+  private ship!: Phaser.GameObjects.Image;
   private running = false;
   private space!: Phaser.Input.Keyboard.Key | undefined;
 
@@ -49,6 +52,10 @@ export class TanksScene extends Phaser.Scene {
     this.cone = new GazeCone(this, this.world);
     this.gfx = this.add.graphics();
     this.world.add(this.gfx);
+    this.ship = this.add
+      .image(0, 0, emojiTexture(this, '🚀'))
+      .setDisplaySize(CELL * 0.9, CELL * 0.9);
+    this.world.add(this.ship);
     this.controls = new Controls(this, this.uiLayer);
     this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.cameras.main.ignore(this.uiLayer);
@@ -56,6 +63,7 @@ export class TanksScene extends Phaser.Scene {
     this.space = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     const t = T().arcade.tanks;
+    setHash('arcade:tanks');
     const overlay = ui();
     overlay.closeScreen();
     overlay.setClassicalBanner(null);
@@ -68,7 +76,7 @@ export class TanksScene extends Phaser.Scene {
     overlay.setFocus(null);
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
-    overlay.setArcadeButtons(null);
+    overlay.setArcadePad(null);
     overlay.handlers = {
       menu: () => this.openMenu(),
       restart: () => this.scene.restart(),
@@ -101,6 +109,7 @@ export class TanksScene extends Phaser.Scene {
     openMainMenu(this);
   }
 
+  /** Space: a starfield, station walls, asteroids, the shield and the planet. */
   private drawArena(): void {
     const g = this.add.graphics();
     this.world.add(g);
@@ -110,23 +119,31 @@ export class TanksScene extends Phaser.Scene {
         const x = col * CELL;
         const y = row * CELL;
         const tile = tanks.tile(col, row);
-        g.fillStyle(COLORS.floor, 1);
+        g.fillStyle(0x070914, 1);
         g.fillRect(x, y, CELL, CELL);
-        g.lineStyle(1, COLORS.floorLine, 1);
-        g.strokeRect(x, y, CELL, CELL);
+        // A few fixed stars per cell.
+        for (let k = 0; k < 3; k++) {
+          const h = Math.sin((col * 31 + row * 17 + k * 7) * 12.9898) * 43758.5453;
+          const f = h - Math.floor(h);
+          g.fillStyle(0xffffff, 0.25 + 0.5 * ((f * 7) % 1));
+          g.fillCircle(
+            x + ((f * 97) % 1) * CELL,
+            y + ((f * 53) % 1) * CELL,
+            1 + ((f * 3) % 1) * 1.5,
+          );
+        }
         if (tile === 'concrete') {
-          g.fillStyle(0x5a6378, 1);
+          g.fillStyle(0x4a5368, 1);
           g.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
-          g.fillStyle(0x7d879e, 1);
-          g.fillRect(x + 6, y + 6, CELL - 12, CELL - 12);
+          g.lineStyle(2, 0x8a95ad, 1);
+          g.strokeRect(x + 6, y + 6, CELL - 12, CELL - 12);
+          g.fillStyle(0x7fd4ff, 0.5);
+          g.fillCircle(x + CELL / 2, y + CELL / 2, 4);
         } else if (tile === 'brick') {
           const img = this.add
-            .image(
-              x + CELL / 2,
-              y + CELL / 2,
-              brickTexture(this, (col * 7 + row * 3) % BRICK_VARIANTS),
-            )
-            .setDisplaySize(CELL, CELL);
+            .image(x + CELL / 2, y + CELL / 2, emojiTexture(this, '🪨'))
+            .setDisplaySize(CELL * 0.92, CELL * 0.92)
+            .setAngle((col * 47 + row * 29) % 360);
           this.world.add(img);
           this.bricks.set(`${col},${row}`, img);
         } else if (tile === 'field') {
@@ -138,8 +155,8 @@ export class TanksScene extends Phaser.Scene {
         } else if (tile === 'base') {
           this.world.add(
             this.add
-              .image(x + CELL / 2, y + CELL / 2, emojiTexture(this, '🦅'))
-              .setDisplaySize(CELL * 0.85, CELL * 0.85),
+              .image(x + CELL / 2, y + CELL / 2, emojiTexture(this, '🌍'))
+              .setDisplaySize(CELL * 0.9, CELL * 0.9),
           );
         }
       }
@@ -188,7 +205,7 @@ export class TanksScene extends Phaser.Scene {
       case 'brick':
         this.bricks.get(`${e.col},${e.row}`)?.destroy();
         this.bricks.delete(`${e.col},${e.row}`);
-        this.ring(e.col, e.row, 0xc0603f);
+        this.ring(e.col, e.row, 0xb0a090);
         play('tick');
         break;
       case 'hit':
@@ -267,21 +284,18 @@ export class TanksScene extends Phaser.Scene {
     for (const v of this.enemies.values()) v.render(time);
     const g = this.gfx;
     g.clear();
-    // The player's tank: hull, treads and the turret pointing where it looks.
-    const x = t.player.x * CELL;
-    const y = t.player.y * CELL;
-    g.fillStyle(0x2f7d3f, 1);
-    g.fillRoundedRect(x - 24, y - 24, 48, 48, 10);
-    g.fillStyle(0x1d4f28, 1);
-    g.fillRect(x - 26, y - 24, 8, 48);
-    g.fillRect(x + 18, y - 24, 8, 48);
-    g.lineStyle(10, 0x9be28f, 1);
-    g.lineBetween(x, y, x + Math.cos(t.aim) * 34, y + Math.sin(t.aim) * 34);
-    g.fillStyle(0x6fcf6a, 1);
-    g.fillCircle(x, y, 13);
-    // Shells.
-    g.fillStyle(COLORS.gaze, 1);
-    for (const s of t.shells) g.fillCircle(s.pos.x * CELL, s.pos.y * CELL, 7);
+    // The player's ship: the 🚀 emoji points up-right, so turn it by the aim + 45°.
+    this.ship.setPosition(t.player.x * CELL, t.player.y * CELL).setRotation(t.aim + Math.PI / 4);
+    // Shots: short laser streaks.
+    g.lineStyle(6, 0xff5fd2, 1);
+    for (const s of t.shells) {
+      g.lineBetween(
+        s.pos.x * CELL,
+        s.pos.y * CELL,
+        (s.pos.x - s.dir.x * 0.4) * CELL,
+        (s.pos.y - s.dir.y * 0.4) * CELL,
+      );
+    }
   }
 
   private layout(): void {

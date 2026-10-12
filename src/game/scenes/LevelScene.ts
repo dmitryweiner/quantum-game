@@ -18,7 +18,7 @@ import type { Gaze } from '../input/types';
 import { GazeCone } from '../systems/GazeCone';
 import { LevelSim, SLITS, type LossReason, type SimEvent } from '../systems/LevelSim';
 import { play } from '../audio';
-import { openMainMenu } from '../menu';
+import { openMainMenu, setHash } from '../menu';
 import { ui } from '../ui';
 import { newChshState, type ChshState } from '../ui/ChshPanel';
 import { markCompleted } from '../ui/progress';
@@ -145,7 +145,7 @@ export class LevelScene extends Phaser.Scene {
     overlay.closeScreen();
     overlay.setHud(this.level);
     overlay.setLevelTools(true);
-    overlay.setArcadeButtons(null);
+    overlay.setArcadePad(null);
     // The HUD is now visible: lay the map out below its real height right away.
     this.layout();
     overlay.setTimer(this.sim.timeLeft);
@@ -180,6 +180,7 @@ export class LevelScene extends Phaser.Scene {
       this.time.delayedCall(6000, () => ui().revealQuantumSwitch());
     }
 
+    if (!data.showMenu) setHash(this.level.id);
     if (data.showMenu) this.openMenu();
     else if (data.skipIntro || this.level === SANDBOX) this.begin();
     else

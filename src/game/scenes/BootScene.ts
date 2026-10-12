@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
-import { levelById } from '../../levels';
-import { ARCADE_SCENES } from '../menu';
+import { idFromHash, startById } from '../menu';
 
 /** Nothing to load yet: emoji come from the system font. */
 export class BootScene extends Phaser.Scene {
@@ -9,11 +8,12 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    // ?level=ch2-03 opens a level directly (handy for sharing and for previews).
-    const id = new URLSearchParams(location.search).get('level');
-    const arcade = id ? ARCADE_SCENES[id] : undefined;
-    if (arcade) this.scene.start(arcade);
-    else if (id && (levelById(id) || id === 'sandbox')) this.scene.start('Level', { levelId: id });
+    // #snake, #ships, #quantris, #sandbox or #ch1-02 open a game directly;
+    // ?level=… does the same (used by the dev preview).
+    const id =
+      idFromHash(location.hash) ??
+      idFromHash(new URLSearchParams(location.search).get('level') ?? '');
+    if (id) startById(this, id);
     else this.scene.start('Level', { showMenu: true });
   }
 }

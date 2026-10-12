@@ -6,7 +6,7 @@ import { T } from '../../strings/ui';
 import { play } from '../audio';
 import { CELL, COLORS, UI_FONT } from '../constants';
 import { px } from '../display';
-import { openMainMenu } from '../menu';
+import { openMainMenu, setHash } from '../menu';
 import { fitCamera } from '../render/tiles';
 import { ui } from '../ui';
 import { bestScore, saveBest } from '../ui/progress';
@@ -73,6 +73,7 @@ export class QuantrisScene extends Phaser.Scene {
       .setResolution(3);
 
     const t = T().arcade.quantris;
+    setHash('arcade:quantris');
     const overlay = ui();
     overlay.closeScreen();
     overlay.setClassicalBanner(null);
@@ -85,25 +86,35 @@ export class QuantrisScene extends Phaser.Scene {
     overlay.setFocus(null);
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
-    overlay.setArcadeButtons(
+    overlay.setArcadePad(
       isTouchDevice()
-        ? [
-            {
-              label: '⬅',
+        ? {
+            up: { label: '⏬', aria: t.aria.drop, press: () => this.act(() => this.q.hardDrop()) },
+            left: {
+              label: '◀',
               aria: t.aria.left,
               press: () => this.act(() => this.q.move(-1)),
               repeat: true,
             },
-            { label: '⟳', aria: t.aria.rotate, press: () => this.act(() => (this.q.rotate(), [])) },
-            {
-              label: '➡',
+            right: {
+              label: '▶',
               aria: t.aria.right,
               press: () => this.act(() => this.q.move(1)),
               repeat: true,
             },
-            { label: '⬇', aria: t.aria.down, press: () => this.act(() => this.q.hardDrop()) },
-            { label: '👁', aria: t.aria.look, press: () => this.act(() => this.q.look()) },
-          ]
+            down: {
+              label: '▼',
+              aria: t.aria.down,
+              press: () => this.act(() => this.q.softDrop()),
+              repeat: true,
+            },
+            a: {
+              label: '⟳',
+              aria: t.aria.rotate,
+              press: () => this.act(() => (this.q.rotate(), [])),
+            },
+            b: { label: '👁', aria: t.aria.look, press: () => this.act(() => this.q.look()) },
+          }
         : null,
     );
     overlay.handlers = {
@@ -122,7 +133,7 @@ export class QuantrisScene extends Phaser.Scene {
     this.scale.on('resize', this.layout, this);
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.layout, this);
-      ui().setArcadeButtons(null);
+      ui().setArcadePad(null);
     });
     this.layout();
     this.bindKeys();
@@ -287,11 +298,14 @@ export class QuantrisScene extends Phaser.Scene {
 
   private layout(): void {
     if (!this.q) return;
-    this.at = arrangement(this.scale.height > this.scale.width);
+    const portrait = this.scale.height > this.scale.width;
+    this.at = arrangement(portrait);
+    // Portrait: the game-pad sits below the well. Landscape: on both sides of it.
+    const pad = ui().buttonBarHeight();
     fitCamera(this.cameras.main, this.scale, this.at.world, {
       top: px(ui().hudBottom() + 6),
-      bottom: px(ui().buttonBarHeight() + 6),
-      side: px(6),
+      bottom: portrait ? px(pad + 6) : px(8),
+      side: portrait || pad === 0 ? px(6) : px(200),
     });
   }
 }

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { installAudioUnlock } from './game/audio';
+import { idFromHash, startById } from './game/menu';
 import { viewportSize, DPR } from './game/display';
 import { BootScene } from './game/scenes/BootScene';
 import { LevelScene } from './game/scenes/LevelScene';
@@ -24,6 +25,13 @@ const game = new Phaser.Game({
   input: { activePointers: 3 },
   disableContextMenu: true,
   scene: [BootScene, LevelScene, SnakeScene, TanksScene, QuantrisScene],
+});
+
+// Editing the address (or following a #link) while the game is open switches to that game.
+window.addEventListener('hashchange', () => {
+  const id = idFromHash(location.hash);
+  const current = game.scene.getScenes(true)[0];
+  if (id && current) startById(current, id);
 });
 
 const onResize = () => {

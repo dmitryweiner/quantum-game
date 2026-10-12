@@ -8,7 +8,7 @@ import { play } from '../audio';
 import { CELL, COLORS } from '../constants';
 import { px } from '../display';
 import { QuantumObject } from '../entities/QuantumObject';
-import { openMainMenu } from '../menu';
+import { openMainMenu, setHash } from '../menu';
 import { drawTiles, fitCamera } from '../render/tiles';
 import { GazeCone } from '../systems/GazeCone';
 import { ui } from '../ui';
@@ -42,6 +42,7 @@ export class SnakeScene extends Phaser.Scene {
     this.world.add(this.snakeGfx);
 
     const s = T().arcade.snake;
+    setHash('arcade:snake');
     const overlay = ui();
     overlay.closeScreen();
     overlay.setClassicalBanner(null);
@@ -54,7 +55,7 @@ export class SnakeScene extends Phaser.Scene {
     overlay.setFocus(null);
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
-    overlay.setArcadeButtons(null);
+    overlay.setArcadePad(null);
     overlay.handlers = {
       menu: () => this.openMenu(),
       restart: () => this.scene.restart(),

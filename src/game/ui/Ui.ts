@@ -12,6 +12,15 @@ import type { InspectInfo } from './inspect';
 import { bestScore, completedLevels } from './progress';
 import './ui.css';
 
+/** Buttons of the on-screen game-pad. */
+export type PadKey = 'up' | 'down' | 'left' | 'right' | 'a' | 'b';
+export interface PadButton {
+  label: string;
+  aria: string;
+  press: () => void;
+  repeat?: boolean;
+}
+
 /** What the HUD shows: a level, or an arcade game dressed as one. */
 export type HudInfo = Pick<LevelDef, 'chapter' | 'title' | 'goal'>;
 
@@ -617,18 +626,18 @@ export class Ui {
   }
 
   /**
-   * A bar of big buttons at the bottom (arcade touch controls), or none.
-   * `repeat` buttons fire again while held, like a held key.
+   * A game-pad at the bottom for arcades, laid out like a handheld console:
+   * a cross on the left (up, left, right, down) and round A / B buttons on
+   * the right. `repeat` buttons fire again while held, like a held key.
    */
-  setArcadeButtons(
-    buttons: { label: string; aria: string; press: () => void; repeat?: boolean }[] | null,
-  ): void {
+  setArcadePad(pad: Partial<Record<PadKey, PadButton>> | null): void {
     this.buttonBar?.remove();
     this.buttonBar = null;
-    if (!buttons) return;
-    const bar = h('div', { class: 'arcade-bar' });
-    for (const b of buttons) {
-      const el = h('button', { class: 'btn arcade-btn', 'aria-label': b.aria }, b.label);
+    if (!pad) return;
+    const make = (key: PadKey) => {
+      const b = pad[key];
+      if (!b) return h('span', { class: `pad-gap pad-${key}` });
+      const el = h('button', { class: `btn pad-btn pad-${key}`, 'aria-label': b.aria }, b.label);
       let timer: number | undefined;
       const stop = () => {
         window.clearTimeout(timer);
@@ -648,13 +657,18 @@ export class Ui {
       });
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
         el.addEventListener(ev, stop);
-      bar.append(el);
-    }
-    this.buttonBar = bar;
-    this.root.append(bar);
+      return el;
+    };
+    this.buttonBar = h(
+      'div',
+      { class: 'arcade-pad' },
+      h('div', { class: 'pad-cross' }, make('up'), make('left'), make('right'), make('down')),
+      h('div', { class: 'pad-ab' }, make('b'), make('a')),
+    );
+    this.root.append(this.buttonBar);
   }
 
-  /** Height of the arcade button bar in CSS pixels (0 if none). */
+  /** Height of the arcade game-pad in CSS pixels (0 if none). */
   buttonBarHeight(): number {
     return this.buttonBar ? this.buttonBar.getBoundingClientRect().height + 8 : 0;
   }
