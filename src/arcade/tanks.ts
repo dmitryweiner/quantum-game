@@ -32,6 +32,17 @@ export const TANKS = {
   maxEnemies: 3,
   spawnEvery: 5,
   perWave: 6,
+  /** Quantum torpedoes: at the start, the most you can carry, one more per wave. */
+  torpedoes: 3,
+  maxTorpedoes: 5,
+  /** Torpedo wave: hopping rate (1/s), packet width (cells), wave number (rad/cell). */
+  torpedoHop: 3,
+  torpedoWidth: 0.9,
+  torpedoK: Math.PI / 2,
+  /** Seconds before an unexploded torpedo fizzles out. */
+  torpedoLife: 4,
+  /** How readily overlapping clouds meet, per second at full overlap. */
+  torpedoContact: 14,
 } as const;
 
 export interface Shell {
@@ -43,6 +54,12 @@ export interface Enemy extends QuantumBody {
   id: number;
 }
 
+/** A quantum torpedo: a moving wave packet. */
+export interface Torpedo extends QuantumBody {
+  id: number;
+  age: number;
+}
+
 export type TankEvent =
   /** `enemy` is the enemy's id. */
   | { type: 'collapsed'; enemy: number; site: number }
@@ -52,6 +69,9 @@ export type TankEvent =
   | { type: 'hit'; enemy: number; col: number; row: number }
   | { type: 'miss'; col: number; row: number }
   | { type: 'base-hit' }
+  | { type: 'torpedo'; torpedo: number }
+  | { type: 'torpedo-hit'; torpedo: number; enemy: number; col: number; row: number }
+  | { type: 'torpedo-gone'; torpedo: number }
   | { type: 'spawn'; enemy: number }
   | { type: 'wave'; wave: number }
   | { type: 'over' };
@@ -80,6 +100,8 @@ export class TankGame {
   cone: Cone;
   enemies: Enemy[] = [];
   shells: Shell[] = [];
+  torpedoes: Torpedo[] = [];
+  torpedoAmmo: number = TANKS.torpedoes;
   baseHp: number = TANKS.baseHp;
   score = 0;
   wave = 1;
@@ -258,6 +280,7 @@ export class TankGame {
       this.wave++;
       this.spawned = 0;
       this.spawnIn = 2;
+      this.torpedoAmmo = Math.min(TANKS.maxTorpedoes, this.torpedoAmmo + 1);
       events.push({ type: 'wave', wave: this.wave });
     }
 
@@ -305,7 +328,96 @@ export class TankGame {
       events.push({ type: 'fired' });
     }
     this.moveShells(dt, events);
+    this.moveTorpedoes(dt, events);
     return events;
+  }
+
+  /**
+   * Launch a quantum torpedo along the aim. It is a wave packet: it spreads
+   * as it flies, flows around asteroids and tunnels through the shield. The
+   * ship's eye does not measure it (a watched torpedo would freeze — Zeno —
+   * and lose its speed); only meeting an alien does.
+   */
+  launchTorpedo(): TankEvent[] {
+    if (this.over || this.torpedoAmmo <= 0) return [];
+    const at = { col: Math.floor(this.player.x), row: Math.floor(this.player.y) };
+    const lattice = floodLattice(at, this.waveOpen);
+    const potential = Array.from(lattice.col, (c, i) =>
+      this.tile(c, lattice.row[i]!) === 'field' ? TANKS.field * TANKS.torpedoHop : 0,
+    );
+    const psi = new Superposition(
+      lattice,
+      lattice.siteAt(at.col, at.row),
+      TANKS.torpedoHop,
+      potential,
+    );
+    psi.setWavePacket({ x: at.col, y: at.row }, TANKS.torpedoWidth, {
+      x: TANKS.torpedoK * Math.cos(this.aim),
+      y: TANKS.torpedoK * Math.sin(this.aim),
+    });
+    const id = this.nextId++;
+    this.torpedoes.push({
+      id,
+      age: 0,
+      def: { char: 'T', role: 'quantum', emoji: '⚛️', col: at.col, row: at.row },
+      psi,
+      seen: new Array<boolean>(lattice.size).fill(false),
+    });
+    this.torpedoAmmo--;
+    return [{ type: 'torpedo', torpedo: id }];
+  }
+
+  /**
+   * Torpedoes fly on; where a torpedo cloud and an alien cloud overlap they
+   * may meet: the chance this frame grows with their overlap Σ p_torpedo·p_alien,
+   * and the meeting cell is picked by the Born rule.
+   */
+  private moveTorpedoes(dt: number, events: TankEvent[]): void {
+    const keep: Torpedo[] = [];
+    for (const t of this.torpedoes) {
+      t.psi.evolve(dt);
+      t.age += dt;
+      let exploded = false;
+      for (let k = 0; k < this.enemies.length && !exploded; k++) {
+        const e = this.enemies[k]!;
+        const cells: number[] = [];
+        const weights: number[] = [];
+        let overlap = 0;
+        for (let i = 0; i < t.psi.lattice.size; i++) {
+          const j = e.psi.lattice.siteAt(t.psi.lattice.col[i]!, t.psi.lattice.row[i]!);
+          if (j < 0) continue;
+          const w = t.psi.probability(i) * e.psi.probability(j);
+          if (w <= 0) continue;
+          cells.push(i);
+          weights.push(w);
+          overlap += w;
+        }
+        if (overlap <= 0 || this.rng.next() >= 1 - Math.exp(-TANKS.torpedoContact * overlap * dt))
+          continue;
+        let r = this.rng.next() * overlap;
+        let pick = cells[0]!;
+        for (let n = 0; n < cells.length; n++) {
+          r -= weights[n]!;
+          if (r < 0) {
+            pick = cells[n]!;
+            break;
+          }
+        }
+        const col = t.psi.lattice.col[pick]!;
+        const row = t.psi.lattice.row[pick]!;
+        events.push({ type: 'torpedo-hit', torpedo: t.id, enemy: e.id, col, row });
+        this.enemies.splice(k, 1);
+        this.score++;
+        exploded = true;
+      }
+      if (exploded) continue;
+      if (t.age >= TANKS.torpedoLife) {
+        events.push({ type: 'torpedo-gone', torpedo: t.id });
+        continue;
+      }
+      keep.push(t);
+    }
+    this.torpedoes = keep;
   }
 
   /** Shells fly straight; every new cell they enter is measured for each enemy. */

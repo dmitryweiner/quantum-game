@@ -56,6 +56,7 @@ export class SnakeScene extends Phaser.Scene {
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
     overlay.setArcadePad(null);
+    overlay.setActionButton(null);
     overlay.handlers = {
       menu: () => this.openMenu(),
       restart: () => this.scene.restart(),

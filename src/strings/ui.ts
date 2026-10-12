@@ -75,16 +75,18 @@ const EN = {
       title: 'Quantum Starships',
       menu: '🚀 Quantum Starships',
       goal: 'Defend the planet 🌍 — the alien ships 👾 are quantum',
-      hud: (hp: number, score: number, wave: number, best: number) =>
-        `🌍 ${hp} · 👾 ${score} · 🌊 ${wave} · 🏆 ${best}`,
+      hud: (hp: number, score: number, wave: number, torpedoes: number, best: number) =>
+        `🌍 ${hp} · 👾 ${score} · 🌊 ${wave} · ⚛ ${torpedoes} · 🏆 ${best}`,
       rules: [
         'Out of your sight an alien ship is a cloud of ghosts drifting towards the planet.',
         'Your ship’s nose is your eye: what it sees collapses into one ship, and an alien you keep looking at cannot move (Zeno).',
         'A shot asks every cell it crosses “is a ship here?” — through a cloud it hits with the chance its ghost shows; a miss pushes the cloud away from that cell.',
         'The violet shield stops you and your shots, but alien clouds tunnel through it. Asteroids break, station walls do not.',
+        'A quantum torpedo ⚛ flies as a wave: it spreads, flows around asteroids and finds aliens you cannot see — where its cloud meets an alien’s, it may explode, by the Born rule. Your eye does not touch it: a watched torpedo would freeze (Zeno). Few of them; one more each wave.',
       ],
-      controlsTouch: 'Left stick: fly · Right stick: aim and fire.',
-      controlsDesktop: 'WASD: fly · Mouse: aim · Click or Space: fire.',
+      controlsTouch: 'Left stick: fly · Right stick: aim and fire · ⚛: torpedo.',
+      controlsDesktop: 'WASD: fly · Mouse: aim · Click or Space: fire · Right click or E: torpedo.',
+      torpedoAria: 'Launch a quantum torpedo',
       wave: (n: number) => `Wave ${n}!`,
     },
     snake: {
@@ -328,16 +330,19 @@ const RU: Strings = {
       title: 'Квантовые звездолёты',
       menu: '🚀 Квантовые звездолёты',
       goal: 'Защити планету 🌍 — корабли пришельцев 👾 квантовые',
-      hud: (hp: number, score: number, wave: number, best: number) =>
-        `🌍 ${hp} · 👾 ${score} · 🌊 ${wave} · 🏆 ${best}`,
+      hud: (hp: number, score: number, wave: number, torpedoes: number, best: number) =>
+        `🌍 ${hp} · 👾 ${score} · 🌊 ${wave} · ⚛ ${torpedoes} · 🏆 ${best}`,
       rules: [
         'Вне твоего взгляда корабль пришельцев — облако призраков, которое дрейфует к планете.',
         'Нос твоего корабля — твой глаз: что он видит, схлопывается в один корабль, а пришелец, на которого смотришь не отрываясь, не может двигаться (Зенон).',
         'Выстрел спрашивает каждую клетку на пути: «здесь корабль?» — сквозь облако он попадает с вероятностью, равной яркости призрака; промах выталкивает облако из этой клетки.',
         'Фиолетовый щит не пускает тебя и твои выстрелы, а облака пришельцев сквозь него туннелируют. Астероиды разбиваются, стены станции — нет.',
+        'Квантовая торпеда ⚛ летит волной: расплывается, обтекает астероиды и находит пришельцев, которых не видно, — там, где её облако встречает облако пришельца, она может взорваться (по правилу Борна). Твой взгляд её не трогает: под взглядом торпеда бы замерла (Зенон). Их мало; каждая волна даёт ещё одну.',
       ],
-      controlsTouch: 'Левый стик — лететь · Правый стик — целиться и стрелять.',
-      controlsDesktop: 'WASD — лететь · Мышь — целиться · Клик или пробел — огонь.',
+      controlsTouch: 'Левый стик — лететь · Правый стик — целиться и стрелять · ⚛ — торпеда.',
+      controlsDesktop:
+        'WASD — лететь · Мышь — целиться · Клик или пробел — огонь · Правый клик или E — торпеда.',
+      torpedoAria: 'Запустить квантовую торпеду',
       wave: (n: number) => `Волна ${n}!`,
     },
     snake: {

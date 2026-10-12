@@ -86,6 +86,7 @@ export class QuantrisScene extends Phaser.Scene {
     overlay.setFocus(null);
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
+    overlay.setActionButton(null);
     overlay.setArcadePad(
       isTouchDevice()
         ? {

@@ -103,3 +103,51 @@ describe('quantum tanks', () => {
     expect(smart).toBeGreaterThan(idle * 1.5);
   });
 });
+
+describe('quantum torpedo', () => {
+  it('flies along the aim as a spreading wave packet', () => {
+    const g = new TankGame(TANKS_ARENA, mulberry32(10));
+    // Row 11 is open to the left of the ship at (6, 11).
+    g.aim = Math.PI;
+    g.launchTorpedo();
+    const t = g.torpedoes[0]!;
+    const x0 = t.psi.stats().x;
+    for (let i = 0; i < 20; i++) g.update(0.02, still, null, false);
+    const after = t.psi.stats();
+    expect(after.x).toBeLessThan(x0 - 1.5);
+    expect(after.spread).toBeGreaterThan(0.9);
+  });
+
+  it('finds an alien in its path', () => {
+    let hits = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const g = withEnemy(seed, 6, 10);
+      g.aim = Math.PI; // look away: the torpedo does the work
+      (g as unknown as { aim: number }).aim = -Math.PI / 2;
+      g.launchTorpedo();
+      for (let i = 0; i < 100 && g.score === 0; i++) g.update(0.02, still, Math.PI, false);
+      if (g.score === 1) hits++;
+    }
+    expect(hits / 30).toBeGreaterThan(0.7);
+  });
+
+  it('reaches an alien hiding behind an asteroid, where a straight shot cannot', () => {
+    let hits = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      // Asteroids at (5..7, 9) straight above the ship; the alien sits right behind them at (6, 8).
+      const g = withEnemy(seed, 6, 8);
+      g.aim = -Math.PI / 2;
+      g.launchTorpedo();
+      for (let i = 0; i < 200 && g.score === 0; i++) g.update(0.02, still, Math.PI / 2, false);
+      if (g.score === 1) hits++;
+    }
+    expect(hits).toBeGreaterThan(3);
+  });
+
+  it('has limited ammo, one more each wave', () => {
+    const g = new TankGame(TANKS_ARENA, mulberry32(11));
+    for (let i = 0; i < 3; i++) expect(g.launchTorpedo().length).toBe(1);
+    expect(g.launchTorpedo()).toEqual([]);
+    expect(g.torpedoAmmo).toBe(0);
+  });
+});

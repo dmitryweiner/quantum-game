@@ -47,6 +47,7 @@ export class Ui {
   private glassesMode: Basis | null = null;
   private banner: HTMLElement | null = null;
   private buttonBar: HTMLElement | null = null;
+  private actionButton: HTMLElement | null = null;
   private onSwitch: (() => void) | null = null;
   /** Name of the open panel, so background updates only redraw their own panel. */
   private screenName = '';
@@ -666,6 +667,20 @@ export class Ui {
       h('div', { class: 'pad-ab' }, make('b'), make('a')),
     );
     this.root.append(this.buttonBar);
+  }
+
+  /** One round action button above the right thumb (e.g. a torpedo), or none. */
+  setActionButton(button: { label: string; aria: string; press: () => void } | null): void {
+    this.actionButton?.remove();
+    this.actionButton = null;
+    if (!button) return;
+    const el = h('button', { class: 'btn action-btn', 'aria-label': button.aria }, button.label);
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      button.press();
+    });
+    this.actionButton = el;
+    this.root.append(el);
   }
 
   /** Height of the arcade game-pad in CSS pixels (0 if none). */

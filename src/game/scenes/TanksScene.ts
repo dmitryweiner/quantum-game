@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TANKS_ARENA } from '../../arcade/arenas';
 import { TankGame } from '../../arcade/tanks';
+import type { QuantumBody } from '../systems/LevelSim';
 import { mulberry32 } from '../../quantum/rng';
 import type { EffectId } from '../../strings/effects';
 import { T } from '../../strings/ui';
@@ -31,6 +32,7 @@ export class TanksScene extends Phaser.Scene {
   private controls!: Controls;
   private cone!: GazeCone;
   private enemies = new Map<number, QuantumObject>();
+  private torpedoes = new Map<number, QuantumObject>();
   private bricks = new Map<string, Phaser.GameObjects.Image>();
   private gfx!: Phaser.GameObjects.Graphics;
   private ship!: Phaser.GameObjects.Image;
@@ -45,6 +47,7 @@ export class TanksScene extends Phaser.Scene {
     this.tanks = new TankGame(TANKS_ARENA, mulberry32((Math.random() * 2 ** 32) >>> 0));
     this.running = false;
     this.enemies = new Map();
+    this.torpedoes = new Map();
     this.bricks = new Map();
     this.world = this.add.layer();
     this.uiLayer = this.add.layer();
@@ -77,6 +80,9 @@ export class TanksScene extends Phaser.Scene {
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
     overlay.setArcadePad(null);
+    overlay.setActionButton(
+      isTouchDevice() ? { label: '⚛', aria: t.torpedoAria, press: () => this.torpedo() } : null,
+    );
     overlay.handlers = {
       menu: () => this.openMenu(),
       restart: () => this.scene.restart(),
@@ -91,7 +97,15 @@ export class TanksScene extends Phaser.Scene {
     };
     this.updateHud();
     this.scale.on('resize', this.layout, this);
-    this.events.once('shutdown', () => this.scale.off('resize', this.layout, this));
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.layout, this);
+      ui().setActionButton(null);
+    });
+    // Desktop: the right mouse button or E launches a torpedo.
+    this.input.keyboard?.on('keydown-E', () => this.torpedo());
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (!p.wasTouch && p.rightButtonDown()) this.torpedo();
+    });
     this.layout();
     this.render(0);
 
@@ -163,10 +177,22 @@ export class TanksScene extends Phaser.Scene {
     }
   }
 
+  private torpedo(): void {
+    if (!this.running || ui().isScreenOpen) return;
+    for (const e of this.tanks.launchTorpedo()) this.onEvent(e);
+    this.updateHud();
+  }
+
   private updateHud(): void {
     const t = this.tanks;
     ui().setTimer(
-      T().arcade.tanks.hud(t.baseHp, t.score, t.wave, Math.max(bestScore('tanks'), t.score)),
+      T().arcade.tanks.hud(
+        t.baseHp,
+        t.score,
+        t.wave,
+        t.torpedoAmmo,
+        Math.max(bestScore('tanks'), t.score),
+      ),
     );
   }
 
@@ -223,6 +249,17 @@ export class TanksScene extends Phaser.Scene {
       case 'wave':
         play('win');
         break;
+      case 'torpedo':
+        play('snap');
+        break;
+      case 'torpedo-hit':
+        this.ring(e.col, e.row, 0x7fd4ff);
+        this.ring(e.col, e.row, COLORS.hot);
+        play('boom');
+        break;
+      case 'torpedo-gone':
+        play('tick');
+        break;
       case 'over':
         this.gameOver();
         break;
@@ -231,20 +268,28 @@ export class TanksScene extends Phaser.Scene {
     }
   }
 
-  /** One ghost renderer per enemy; rebuilt when an enemy's lattice changes. */
+  /** One ghost renderer per enemy and torpedo; rebuilt when a lattice changes. */
   private syncEnemies(): void {
-    const alive = new Set(this.tanks.enemies.map((e) => e.id));
-    for (const [id, view] of this.enemies) {
+    this.syncClouds(this.torpedoes, this.tanks.torpedoes);
+    this.syncClouds(this.enemies, this.tanks.enemies);
+  }
+
+  private syncClouds(
+    views: Map<number, QuantumObject>,
+    bodies: readonly (QuantumBody & { id: number })[],
+  ): void {
+    const alive = new Set(bodies.map((e) => e.id));
+    for (const [id, view] of views) {
       if (!alive.has(id)) {
         view.destroy();
-        this.enemies.delete(id);
+        views.delete(id);
       }
     }
-    for (const e of this.tanks.enemies) {
-      const view = this.enemies.get(e.id);
+    for (const e of bodies) {
+      const view = views.get(e.id);
       if (view && view.body === e) continue;
       view?.destroy();
-      this.enemies.set(e.id, new QuantumObject(this, this.world, e));
+      views.set(e.id, new QuantumObject(this, this.world, e));
     }
   }
 
@@ -282,6 +327,7 @@ export class TanksScene extends Phaser.Scene {
     const t = this.tanks;
     this.cone.draw(t.cone, t.opaque);
     for (const v of this.enemies.values()) v.render(time);
+    for (const v of this.torpedoes.values()) v.render(time);
     const g = this.gfx;
     g.clear();
     // The player's ship: the 🚀 emoji points up-right, so turn it by the aim + 45°.
