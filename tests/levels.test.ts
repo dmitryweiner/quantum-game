@@ -113,6 +113,19 @@ function winRate(level: LevelDef, strategy: Strategy, runs = 120, maxTime = 30):
   return wins / runs;
 }
 
+/** Watch the door's percentage and glance when it peaks (what the HUD label invites). */
+const peakGlance = (door: Vec2): Strategy => {
+  let prev = 0;
+  return (t, sim) => {
+    if (t === 0) prev = 0;
+    const b = sim.bodies[0]!;
+    const p = b.psi.probability(b.psi.lattice.siteAt(Math.floor(door.x), Math.floor(door.y)));
+    const glance = p < prev && prev >= 0.12;
+    prev = glance ? 0 : p;
+    return glance ? door : null;
+  };
+};
+
 /** Eyes closed for a second, then one quick look at the door. */
 const blink =
   (door: Vec2): Strategy =>
@@ -240,19 +253,6 @@ describe('chapter 3 playtest', () => {
 
 describe('chapter 4 playtest', () => {
   const ch4 = (id: string) => LEVELS.find((l) => l.id === id)!;
-
-  /** Watch the door's percentage and glance when it peaks (what the HUD label invites). */
-  const peakGlance = (door: Vec2): Strategy => {
-    let prev = 0;
-    return (t, sim) => {
-      if (t === 0) prev = 0;
-      const b = sim.bodies[0]!;
-      const p = b.psi.probability(b.psi.lattice.siteAt(Math.floor(door.x), Math.floor(door.y)));
-      const glance = p < prev && prev >= 0.12;
-      prev = glance ? 0 : p;
-      return glance ? door : null;
-    };
-  };
 
   it('ch4-01: blinking at the door catches the tunnelling cat', () => {
     const level = ch4('ch4-01');
@@ -386,8 +386,10 @@ describe('chapter 1 playtest', () => {
     it(`${level.id}: never won with eyes closed`, () => {
       expect(winRate(level, () => null, 20)).toBe(0);
     });
-    it(`${level.id}: blinking at the door usually wins`, () => {
-      expect(winRate(level, blink(door))).toBeGreaterThan(0.6);
+    // Wave Rider is about timing: glance when the door's percentage peaks.
+    const strategy = level.id === 'ch1-03' ? peakGlance(door) : blink(door);
+    it(`${level.id}: the intended strategy usually wins`, () => {
+      expect(winRate(level, strategy)).toBeGreaterThan(0.6);
     });
   }
 

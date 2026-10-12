@@ -39,16 +39,40 @@ function angleDiff(a: number, b: number): number {
   return Math.abs(d);
 }
 
-/** A cell is seen when its centre is inside the cone and not hidden behind a wall. */
-export function cellSeen(cone: Cone, col: number, row: number, blocks: SightBlocker): boolean {
-  const c = { x: col + 0.5, y: row + 0.5 };
-  const dx = c.x - cone.origin.x;
-  const dy = c.y - cone.origin.y;
+/**
+ * Points that stand for a cell: its centre, corners and edge midpoints,
+ * pulled slightly inside so a ray to a corner does not graze the next cell.
+ * Centre first: it is the most likely to be seen, so checks stop early.
+ */
+const SAMPLE_OFFSETS: readonly (readonly [number, number])[] = (() => {
+  const k = [0.08, 0.5, 0.92];
+  const pts: [number, number][] = [[0.5, 0.5]];
+  for (const x of k) for (const y of k) if (x !== 0.5 || y !== 0.5) pts.push([x, y]);
+  return pts;
+})();
+
+/** How far outside the cone a point is: 0 inside, else cells beyond its edge. */
+function excessOf(cone: Cone, p: Vec2): number {
+  const dx = p.x - cone.origin.x;
+  const dy = p.y - cone.origin.y;
   const dist = Math.hypot(dx, dy);
-  if (dist > cone.range) return false;
+  const outOfRange = Math.max(0, dist - cone.range);
   // The observer always sees what is right under their nose.
-  if (dist > 0.5 && angleDiff(Math.atan2(dy, dx), cone.angle) > cone.halfAngle) return false;
-  return lineOfSight(cone.origin, c, blocks);
+  const outOfAngle =
+    dist > 0.5 ? Math.max(0, angleDiff(Math.atan2(dy, dx), cone.angle) - cone.halfAngle) * dist : 0;
+  return Math.hypot(outOfRange, outOfAngle);
+}
+
+/**
+ * A cell is seen when any part of it — not just its centre — is inside the
+ * cone and not hidden behind a wall: a look that touches a cell counts.
+ */
+export function cellSeen(cone: Cone, col: number, row: number, blocks: SightBlocker): boolean {
+  for (const [ox, oy] of SAMPLE_OFFSETS) {
+    const p = { x: col + ox, y: row + oy };
+    if (excessOf(cone, p) === 0 && lineOfSight(cone.origin, p, blocks)) return true;
+  }
+  return false;
 }
 
 /** Distance a ray travels before hitting a blocking cell (≤ maxDist). */
@@ -82,15 +106,16 @@ export function cellVisibility(
   blocks: SightBlocker,
   soft: number,
 ): number {
-  const c = { x: col + 0.5, y: row + 0.5 };
-  const dx = c.x - cone.origin.x;
-  const dy = c.y - cone.origin.y;
-  const dist = Math.hypot(dx, dy);
-  const outOfRange = Math.max(0, dist - cone.range);
-  const outOfAngle =
-    dist > 0.5 ? Math.max(0, angleDiff(Math.atan2(dy, dx), cone.angle) - cone.halfAngle) * dist : 0;
-  const excess = Math.hypot(outOfRange, outOfAngle);
-  if (excess > 3 * soft) return 0;
-  if (!lineOfSight(cone.origin, c, blocks)) return 0;
-  return Math.exp(-((excess / soft) ** 2));
+  // The best-seen point of the cell decides, as for a sharp look.
+  let best = 0;
+  for (const [ox, oy] of SAMPLE_OFFSETS) {
+    const p = { x: col + ox, y: row + oy };
+    const excess = excessOf(cone, p);
+    if (excess > 3 * soft) continue;
+    const v = Math.exp(-((excess / soft) ** 2));
+    if (v <= best || !lineOfSight(cone.origin, p, blocks)) continue;
+    best = v;
+    if (best === 1) break;
+  }
+  return best;
 }
