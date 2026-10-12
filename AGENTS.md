@@ -10,6 +10,9 @@ is about **how to work** here.
   and the owner checks it on a phone.
 - Before committing: `npm run lint`, `npm run typecheck`, `npm test`,
   `npm run build` must all pass.
+- After every push, wait for the CI and Pages runs (`gh run list`) and check
+  they are green — CI machines are slower, so timing-sensitive tests can fail
+  there while passing locally; a red CI also blocks the deploy.
 - **Dev tools are welcome in the repo.** If you write a script, page or helper
   for development that could be useful again (previews, simulations, checkers,
   generators), commit it instead of throwing it away. Keep it out of the
