@@ -39,14 +39,6 @@ describe('level definitions', () => {
             expect(has('source') && has('slit') && has('screen')).toBe(true);
             expect(map.objects.some((o) => o.lamp)).toBe(true);
             break;
-          case 'bombs':
-            expect(level.winCondition.bombs).toBeLessThan(level.winCondition.boxes);
-            break;
-          case 'teleport':
-          case 'spy':
-          case 'plinko':
-          case 'pairs':
-            break;
           case 'escape':
             expect(has('core') && has('exit')).toBe(true);
             break;

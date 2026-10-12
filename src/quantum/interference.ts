@@ -1,4 +1,3 @@
-import { Qubit } from './qubit';
 import { pickWeighted, type Rng } from './rng';
 
 /**
@@ -42,45 +41,3 @@ export function doubleSlitRows(opts: {
 export function sampleScreenRow(rows: readonly number[], rng: Rng): number {
   return pickWeighted(rng, rows);
 }
-
-export type MachZehnderResult = 'boom' | 'bright' | 'dark';
-
-/**
- * One photon through a Mach–Zehnder interferometer with 50/50 beam splitters.
- * The paths are a qubit: |0⟩ = lower arm, |1⟩ = upper arm (where the box is).
- * Without a bomb the two arms interfere so the photon always reaches the
- * bright detector. A live bomb in the upper arm measures the path: half the
- * time the photon is there and it explodes; otherwise the interference is
- * gone and the photon reaches either detector — the dark one proves the bomb
- * is there although the photon never touched it (Elitzur–Vaidman).
- */
-export function machZehnder(bomb: boolean, rng: Rng): MachZehnderResult {
-  const q = new Qubit(0);
-  q.angle += Math.PI / 4; // first beam splitter
-  if (bomb && q.measure(0, rng) === 1) return 'boom'; // the bomb looks at the upper arm
-  q.angle += Math.PI / 4; // second beam splitter
-  return q.measure(0, rng) === 1 ? 'bright' : 'dark';
-}
-
-export type ZenoBombResult = 'boom' | 'bomb' | 'empty';
-
-/**
- * Zeno-boosted bomb test (Kwiat et al. 1995): the photon goes round `n`
- * times, each pass turning its path by π/2n towards the box arm. With no
- * bomb the turns add up and it always ends in the box arm ('empty'). A live
- * bomb looks at the arm on every pass; each look most likely finds the photon
- * still in the safe arm and resets it, so it ends there ('bomb') with
- * probability cos^(2n)(π/2n) → 1 as n grows.
- */
-export function zenoBombTest(bomb: boolean, n: number, rng: Rng): ZenoBombResult {
-  const q = new Qubit(0);
-  const step = Math.PI / (2 * n);
-  for (let i = 0; i < n; i++) {
-    q.angle += step;
-    if (bomb && q.measure(0, rng) === 1) return 'boom';
-  }
-  return q.measure(0, rng) === 1 ? 'empty' : 'bomb';
-}
-
-/** Chance that a Zeno test of a live bomb with `n` passes ends safely. */
-export const zenoSurvival = (n: number): number => Math.cos(Math.PI / (2 * n)) ** (2 * n);

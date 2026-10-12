@@ -19,30 +19,6 @@ export type WinCondition =
    * are `spacing` rows apart under an envelope `envelope` rows wide.
    */
   | { type: 'light-lamp'; hits: number; spacing: number; envelope: number }
-  /**
-   * Elitzur–Vaidman bomb testing at a lab table (a panel): `boxes` boxes, of
-   * which `bombs` hold live bombs. 'prove-one': prove at least one live bomb
-   * without setting it off (one photon per test). 'sort-all': sort every box
-   * with at most `maxBooms` explosions, using Zeno tests with up to
-   * `maxPasses` passes.
-   */
-  | { type: 'bombs'; mode: 'prove-one'; boxes: number; bombs: number }
-  | {
-      type: 'bombs';
-      mode: 'sort-all';
-      boxes: number;
-      bombs: number;
-      maxBooms: number;
-      maxPasses: number;
-    }
-  /** Teleport a hidden colour to a sealed room `rounds` times in a row (a panel). */
-  | { type: 'teleport'; rounds: number }
-  /** BB84: judge `channels` lines in a row — clean, or tapped by a spy (a panel). */
-  | { type: 'spy'; channels: number }
-  /** Quantum Plinko: catch enough balls in one round with a 2-slot bucket (a panel). */
-  | { type: 'plinko' }
-  /** Hong–Ou–Mandel: pick particles that always leave together, then always apart (a panel). */
-  | { type: 'pairs' }
   /** Reach the exit 🏁; every core ☢️ must still be intact when checked there. */
   | { type: 'escape' }
   /** CHSH game with a robot: win at least `threshold` of `rounds` rounds. */

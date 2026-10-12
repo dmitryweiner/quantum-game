@@ -1,7 +1,7 @@
 import { locale, type Locale } from '../i18n';
 
 /** Russian noun form for a count: 1 круг, 2 круга, 5 кругов. */
-function ruPlural(n: number, one: string, few: string, many: string): string {
+export function ruPlural(n: number, one: string, few: string, many: string): string {
   const m10 = n % 10;
   const m100 = n % 100;
   if (m10 === 1 && m100 !== 11) return one;
@@ -19,8 +19,6 @@ const EN = {
     3: 'Uncertainty',
     4: 'Other Observers',
     5: 'Interference',
-    6: 'Quantum Information',
-    7: 'Crowds and Walks',
   } as Record<number, string>,
   classical: {
     title: 'Classical mode',
@@ -55,11 +53,6 @@ const EN = {
     'zone-after-dark': 'Still in the ring! 🎉',
     escape: 'Out, core intact! 🏁',
     'light-lamp': 'The lamp is lit! 💡',
-    bombs: 'Bombs sorted safely! 💣',
-    teleport: 'Teleported! ✨',
-    spy: 'The line is safe with you! 🔐',
-    plinko: 'Bucket full! 🪣',
-    pairs: 'Sheep together, penguins apart! 🐑🐧',
     chsh: 'Telepathy confirmed! 🎉',
   },
   lost: 'Time’s up ⏳',
@@ -77,111 +70,6 @@ const EN = {
   lostCore: 'The core decayed 💥',
   lostCoreText:
     'Left unwatched, the core slid towards decay — and a look found it gone. Keep it in sight the whole time; brief glances away are fine.',
-  lostPairs: 'Out of pairs 🐑',
-  lostPairsText: 'These particles do not always behave the same way. Try another kind.',
-  lostSpy: 'Wrong call 🕵️',
-  lostSpyText:
-    'Compare enough bits before you decide: with a spy on the line, about one in four of them disagree.',
-  lostBombs: 'Too many explosions 💥',
-  lostBombsText:
-    'The live bombs went off before you could prove one safely. Try again — the boxes are reshuffled.',
-  plinko: {
-    scheme:
-      'Quantum balls start in the middle of the board and spread as waves before they land. Your 2-slot bucket 🪣 catches whatever lands in it.',
-    bucket: (from: number) => `Bucket over slots ${from + 1}–${from + 2}`,
-    drop: (n: number) => `⬇️ Drop ${n} balls`,
-    caught: (k: number, need: number) => `Caught ${k} — need ${need} in one round.`,
-    landedTitle: 'Where all the balls so far have landed',
-  },
-  pairs: {
-    scheme:
-      'Two particles meet at a half-mirror 🪞, one from each side. Each can bounce or pass; then they leave through the left or right door.',
-    task: (t: 'together' | 'apart'): string =>
-      t === 'together'
-        ? 'Task 1: the pair always leaves through the SAME door'
-        : 'Task 2: the pair always leaves through DIFFERENT doors',
-    streak: (n: number, need: number, tries: number) =>
-      `In a row: ${n} / ${need} · pairs left: ${tries}`,
-    choose: 'Choose the particles:',
-    bosons: '🐑 Sheep',
-    fermions: '🐧 Penguins',
-    marbles: '🔴🔵 Marbles',
-    send: '🪞 Send a pair',
-    result: {
-      'together-left': '⬅️ Both out of the left door',
-      'together-right': '➡️ Both out of the right door',
-      apart: '↔️ They split up',
-    } as Record<string, string>,
-    taskDone: 'Task done! ✅',
-  },
-  teleport: {
-    scheme:
-      'Your room: the secret 🎁 and your half of an entangled pair ⚪. Sealed room: the other half ⚪. Between the rooms only a phone line for ordinary bits.',
-    streak: (n: number, of: number) => `Teleported in a row: ${n} / ${of}`,
-    secret: 'Secret',
-    far: 'Far ball',
-    bell: '🔬 Bell measurement (secret + your half)',
-    bits: (z: string, x: string) => `Bits on the phone: Z-bit ${z} · X-bit ${x}`,
-    flipX: (on: boolean) => `${on ? '✅' : '⬜'} Flip X on the far ball`,
-    flipZ: (on: boolean) => `${on ? '✅' : '⬜'} Flip Z on the far ball`,
-    rule: 'Rule: X-bit 1 → flip X; Z-bit 1 → flip Z.',
-    peek: '👀 Peek at the secret (Z glasses) and phone the colour',
-    peeked: (c: string) =>
-      `You saw ${c} and had the far ball made ${c}. The secret itself is spoilt now.`,
-    check: '✅ Check the far ball',
-    match: (c: string) => `Match! The secret was ${c}, and the far ball is ${c} too.`,
-    miss: (c: string) => `No match — the secret was ${c}. The streak starts again.`,
-    next: 'Next secret ▶',
-  },
-  spy: {
-    scheme:
-      'The robot 🤖 sends you single photons for a secret key, each in random glasses. A spy 🕵️ may be on the line — or not.',
-    progress: (n: number, of: number) => `Lines judged correctly: ${n} / ${of}`,
-    receive: (n: number) => `📡 Receive ${n} photons (random glasses)`,
-    received: (n: number, kept: number) =>
-      `Received ${n}. Glasses matched the robot’s on ${kept} — that is your raw key.`,
-    compareLabel: (k: number, max: number) =>
-      `Compare ${k} of them in public (the message needs the rest; at most ${max})`,
-    compare: (k: number) => `🔍 Compare ${k} bits`,
-    compared: (checked: number, errors: number): string =>
-      errors === 0 ? `Compared ${checked}: all agree.` : `Compared ${checked}: ${errors} disagree!`,
-    clean: '✅ Line is clean — send the secret',
-    spyCall: '🚨 Spy! Throw the key away',
-    right: (spy: boolean): string =>
-      spy
-        ? 'Right — there was a spy 🕵️. Key thrown away.'
-        : 'Right — the line was clean. Secret delivered 🔐.',
-    wrong: (spy: boolean): string =>
-      spy
-        ? 'Wrong — there was a spy 🕵️, and now she has your secret.'
-        : 'Wrong — the line was clean; you threw away a good key.',
-    next: 'Next line ▶',
-  },
-  bombs: {
-    table:
-      'Interferometer: 🔦 → beam splitter → two arms (one through the box) → beam splitter → detectors 🟢 bright / 🔴 dark',
-    tableZeno:
-      'Zeno tester: the photon goes round N times, nudged a little towards the box arm on each pass, then hits ⚪ “empty” or 💣 “bomb”.',
-    box: (i: number) => `Box ${i + 1}`,
-    unknown: '❓',
-    test: '🔦 Fire a photon',
-    testZeno: (n: number) => `🔦 Test with ${n} ${n === 1 ? 'pass' : 'passes'}`,
-    open: '👀 Open the box',
-    passes: (n: number) => `Passes N = ${n}`,
-    survival: (p: string) => `A live bomb stays safe with chance ${p}`,
-    result: {
-      boom: '💥 Boom! It was a live bomb.',
-      bright: '🟢 Bright detector — tells you nothing yet.',
-      dark: '🔴 Dark detector! A live bomb — proven without touching it.',
-      bomb: '💣 “Bomb” — a live bomb, found safely.',
-      empty: '⚪ “Empty” — no bomb in this box.',
-      'opened-empty': '📦 Opened: empty.',
-    } as Record<string, string>,
-    progressProve: (proven: number) => `Proven live bombs: ${proven} / 1`,
-    progressSort: (sorted: number, total: number, booms: number, max: number) =>
-      `Sorted: ${sorted} / ${total} · explosions: ${booms} / ${max}`,
-    pick: 'Pick a box',
-  },
   lightsOut: '🌑 Lights out',
   focusLabel: 'Focus of your look',
   focusBlurry: '☁️ blurry',
@@ -316,8 +204,6 @@ const RU: Strings = {
     3: 'Неопределённость',
     4: 'Чужие наблюдатели',
     5: 'Интерференция',
-    6: 'Квантовая информация',
-    7: 'Толпы и блуждания',
   },
   classical: {
     title: 'Классический режим',
@@ -352,11 +238,6 @@ const RU: Strings = {
     'zone-after-dark': 'Атом в кольце! 🎉',
     escape: 'Выбрался, ядро цело! 🏁',
     'light-lamp': 'Лампа горит! 💡',
-    bombs: 'Бомбы найдены без риска! 💣',
-    teleport: 'Телепортировано! ✨',
-    spy: 'С тобой линия в безопасности! 🔐',
-    plinko: 'Ведро полное! 🪣',
-    pairs: 'Овцы вместе, пингвины врозь! 🐑🐧',
     chsh: 'Телепатия подтверждена! 🎉',
   },
   lost: 'Время вышло ⏳',
@@ -375,113 +256,6 @@ const RU: Strings = {
   lostCore: 'Ядро распалось 💥',
   lostCoreText:
     'Без присмотра ядро скатилось к распаду, и взгляд застал его уже распавшимся. Держи его в поле зрения всё время; короткие отлучки не страшны.',
-  lostPairs: 'Пары закончились 🐑',
-  lostPairsText: 'Эти частицы не ведут себя «всегда» одинаково. Попробуй другой вид.',
-  lostSpy: 'Неверное решение 🕵️',
-  lostSpyText:
-    'Сверь достаточно бит, прежде чем решать: если на линии шпион, не совпадает примерно каждый четвёртый.',
-  lostBombs: 'Слишком много взрывов 💥',
-  lostBombsText:
-    'Живые бомбы взорвались раньше, чем ты успел безопасно доказать хоть одну. Попробуй ещё — коробки перемешаны заново.',
-  plinko: {
-    scheme:
-      'Квантовые шарики стартуют посередине доски и, прежде чем упасть, расплываются волной. Ведро 🪣 на две ячейки ловит всё, что в него попадёт.',
-    bucket: (from: number) => `Ведро над ячейками ${from + 1}–${from + 2}`,
-    drop: (n: number) => `⬇️ Бросить ${n} шарика`,
-    caught: (k: number, need: number) => `Поймано ${k} — нужно ${need} за один раунд.`,
-    landedTitle: 'Куда упали все шарики до сих пор',
-  },
-  pairs: {
-    scheme:
-      'Две частицы встречаются на полупрозрачном зеркале 🪞, по одной с каждой стороны. Каждая может отразиться или пройти — и выходит в левую или правую дверь.',
-    task: (t: 'together' | 'apart') =>
-      t === 'together'
-        ? 'Задание 1: пара всегда выходит в ОДНУ дверь'
-        : 'Задание 2: пара всегда выходит в РАЗНЫЕ двери',
-    streak: (n: number, need: number, tries: number) =>
-      `Подряд: ${n} / ${need} · осталось пар: ${tries}`,
-    choose: 'Выбери частицы:',
-    bosons: '🐑 Овцы',
-    fermions: '🐧 Пингвины',
-    marbles: '🔴🔵 Шарики',
-    send: '🪞 Отправить пару',
-    result: {
-      'together-left': '⬅️ Обе вышли влево вместе',
-      'together-right': '➡️ Обе вышли вправо вместе',
-      apart: '↔️ Разошлись',
-    } as Record<string, string>,
-    taskDone: 'Задание выполнено! ✅',
-  },
-  teleport: {
-    scheme:
-      'Твоя комната: секрет 🎁 и твоя половинка запутанной пары ⚪. Запертая комната: другая половинка ⚪. Между комнатами — только телефон для обычных битов.',
-    streak: (n: number, of: number) => `Телепортировано подряд: ${n} / ${of}`,
-    secret: 'Секрет',
-    far: 'Дальний шар',
-    bell: '🔬 Измерение Белла (секрет + твоя половинка)',
-    bits: (z: string, x: string) => `Биты по телефону: Z-бит ${z} · X-бит ${x}`,
-    flipX: (on: boolean) => `${on ? '✅' : '⬜'} Перевернуть дальний шар по X`,
-    flipZ: (on: boolean) => `${on ? '✅' : '⬜'} Перевернуть дальний шар по Z`,
-    rule: 'Правило: X-бит 1 → переворот X; Z-бит 1 → переворот Z.',
-    peek: '👀 Подсмотреть секрет (очки Z) и сообщить цвет',
-    peeked: (c: string) =>
-      `Ты увидел ${c} и попросил сделать дальний шар ${c}. Сам секрет теперь испорчен.`,
-    check: '✅ Проверить дальний шар',
-    match: (c: string) => `Совпало! Секрет был ${c}, и дальний шар тоже ${c}.`,
-    miss: (c: string) => `Не совпало — секрет был ${c}. Серия начинается заново.`,
-    next: 'Следующий секрет ▶',
-  },
-  spy: {
-    scheme:
-      'Робот 🤖 присылает тебе одиночные фотоны для секретного ключа, каждый — в случайных очках. На линии может сидеть шпион 🕵️ — а может и не сидеть.',
-    progress: (n: number, of: number) => `Верно оценено линий: ${n} / ${of}`,
-    receive: (n: number) => `📡 Принять ${n} фотона (случайные очки)`,
-    received: (n: number, kept: number) =>
-      `Принято ${n}. Очки совпали с очками робота у ${kept} — это сырой ключ.`,
-    compareLabel: (k: number, max: number) =>
-      `Сверить ${k} из них в открытую (остальное нужно для сообщения; не больше ${max})`,
-    compare: (k: number) => `🔍 Сверить ${k} бит`,
-    compared: (checked: number, errors: number): string =>
-      errors === 0
-        ? `Сверено ${checked}: все совпали.`
-        : `Сверено ${checked}: ${errors} не совпали!`,
-    clean: '✅ Линия чиста — отправить секрет',
-    spyCall: '🚨 Шпион! Выбросить ключ',
-    right: (spy: boolean): string =>
-      spy
-        ? 'Верно — шпион был 🕵️. Ключ выброшен.'
-        : 'Верно — линия была чиста. Секрет доставлен 🔐.',
-    wrong: (spy: boolean): string =>
-      spy
-        ? 'Ошибка — шпион был 🕵️, и теперь твой секрет у него.'
-        : 'Ошибка — линия была чиста, а ты выбросил хороший ключ.',
-    next: 'Следующая линия ▶',
-  },
-  bombs: {
-    table:
-      'Интерферометр: 🔦 → светоделитель → два плеча (одно через коробку) → светоделитель → детекторы 🟢 светлый / 🔴 тёмный',
-    tableZeno:
-      'Тестер с Зеноном: фотон проходит круг N раз, каждый раз чуть сдвигаясь к плечу с коробкой, а затем попадает в ⚪ «пусто» или 💣 «бомба».',
-    box: (i: number) => `Коробка ${i + 1}`,
-    unknown: '❓',
-    test: '🔦 Выпустить фотон',
-    testZeno: (n: number) => `🔦 Проверить за ${n} ${ruPlural(n, 'круг', 'круга', 'кругов')}`,
-    open: '👀 Открыть коробку',
-    passes: (n: number) => `Кругов N = ${n}`,
-    survival: (p: string) => `Живая бомба уцелеет с вероятностью ${p}`,
-    result: {
-      boom: '💥 Бум! Это была живая бомба.',
-      bright: '🟢 Светлый детектор — пока ничего не известно.',
-      dark: '🔴 Тёмный детектор! Живая бомба — доказано без касания.',
-      bomb: '💣 «Бомба» — живая бомба, найдена без риска.',
-      empty: '⚪ «Пусто» — в этой коробке бомбы нет.',
-      'opened-empty': '📦 Открыта: пусто.',
-    } as Record<string, string>,
-    progressProve: (proven: number) => `Доказано живых бомб: ${proven} / 1`,
-    progressSort: (sorted: number, total: number, booms: number, max: number) =>
-      `Разобрано: ${sorted} / ${total} · взрывов: ${booms} / ${max}`,
-    pick: 'Выбери коробку',
-  },
   lightsOut: '🌑 Свет погас',
   focusLabel: 'Фокус взгляда',
   focusBlurry: '☁️ размыто',

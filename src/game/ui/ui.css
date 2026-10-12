@@ -373,42 +373,6 @@
   }
 }
 
-.boxes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0;
-}
-
-.btn.box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 72px;
-  padding: 4px;
-}
-
-.btn.box.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent);
-}
-
-.box-face {
-  font-size: 28px;
-}
-
-.box-label {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.passes-range {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
 .chapter-count {
   color: var(--muted);
   font-weight: 500;
@@ -443,68 +407,4 @@
   font-size: 13px;
   text-align: center;
   pointer-events: auto;
-}
-
-.tele-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 12px 0;
-  font-size: 34px;
-}
-
-.tele-ball {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.tele-ball small {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.tele-arrow {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.plinko-board {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 2px;
-  height: 120px;
-  align-items: end;
-  margin: 6px 0 0;
-}
-
-.plinko-board .slot {
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
-}
-
-.plinko-board .slot.bucket {
-  background: rgba(255, 207, 122, 0.18);
-}
-
-.plinko-board .bar {
-  width: 100%;
-  background: var(--accent);
-  border-radius: 3px 3px 0 0;
-}
-
-.plinko-board.bucket-row {
-  height: auto;
-  min-height: 24px;
-  font-size: 16px;
-  overflow: visible;
-}
-
-.slot-cell {
-  white-space: nowrap;
 }

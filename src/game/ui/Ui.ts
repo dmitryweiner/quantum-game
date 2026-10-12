@@ -7,30 +7,10 @@ import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
 import { play, setSoundEnabled, soundEnabled } from '../audio';
 import { h, type Child } from './dom';
-import { bombPanel, type BombPanelState } from './BombPanel';
 import { chshPanel, type ChshState } from './ChshPanel';
-import {
-  pairsPanel,
-  plinkoPanel,
-  type PairsPanelState,
-  type PlinkoPanelState,
-} from './CrowdPanels';
-import {
-  spyPanel,
-  teleportPanel,
-  type SpyPanelState,
-  type TeleportPanelState,
-} from './QinfoPanels';
 import type { InspectInfo } from './inspect';
 import { completedLevels } from './progress';
 import './ui.css';
-
-/** A lab panel of chapters 6–7 with its saved state. */
-export type LabPanel =
-  | { kind: 'teleport'; s: TeleportPanelState }
-  | { kind: 'spy'; s: SpyPanelState }
-  | { kind: 'plinko'; s: PlinkoPanelState }
-  | { kind: 'pairs'; s: PairsPanelState };
 
 /**
  * DOM overlay above the canvas: HUD bar and full-screen panels. Text-heavy
@@ -519,9 +499,6 @@ export class Ui {
       'wrong-colour': [T().lostWrongColour, T().lostWrongColourText],
       escaped: [T().lostEscaped, T().lostEscapedText],
       core: [T().lostCore, T().lostCoreText],
-      exploded: [T().lostBombs, T().lostBombsText],
-      'wrong-call': [T().lostSpy, T().lostSpyText],
-      'out-of-tries': [T().lostPairs, T().lostPairsText],
     }[reason];
     this.open(
       [h('h1', {}, text[0]), h('p', {}, text[1])],
@@ -554,63 +531,6 @@ export class Ui {
       [{ label: T().menu, cancel: true, run: on.menu }],
       show,
       'chsh',
-    );
-  }
-
-  /** Chapter 6 panels: the teleporter and the spy on the line. */
-  showQinfo(
-    level: LevelDef,
-    state: LabPanel,
-    on: { won: () => void; lost: () => void; menu: () => void },
-  ): void {
-    const show = () => this.showQinfo(level, state, on);
-    const events = {
-      rerender: () => {
-        if (this.screenName === 'qinfo') show();
-      },
-      won: on.won,
-      lost: on.lost,
-    };
-    this.open(
-      [
-        h('h1', {}, tr(level.title)),
-        state.kind === 'teleport'
-          ? teleportPanel(state.s, events)
-          : state.kind === 'spy'
-            ? spyPanel(state.s, events)
-            : state.kind === 'plinko'
-              ? plinkoPanel(state.s, events)
-              : pairsPanel(state.s, events),
-        this.effectsLink(level, show),
-      ],
-      [{ label: T().menu, cancel: true, run: on.menu }],
-      show,
-      'qinfo',
-    );
-  }
-
-  /** The bomb-testing lab table; `state` keeps the boxes across redraws. */
-  showBombs(
-    level: LevelDef,
-    state: BombPanelState,
-    on: { won: () => void; lost: () => void; menu: () => void },
-  ): void {
-    const show = () => this.showBombs(level, state, on);
-    this.open(
-      [
-        h('h1', {}, tr(level.title)),
-        bombPanel(level, state, {
-          rerender: () => {
-            if (this.screenName === 'bombs') show();
-          },
-          won: on.won,
-          lost: on.lost,
-        }),
-        this.effectsLink(level, show),
-      ],
-      [{ label: T().menu, cancel: true, run: on.menu }],
-      show,
-      'bombs',
     );
   }
 

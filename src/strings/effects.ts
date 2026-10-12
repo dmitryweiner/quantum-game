@@ -18,11 +18,7 @@ export type EffectId =
   | 'uncertainty'
   | 'tunnelling'
   | 'decoherence'
-  | 'interference'
-  | 'interaction-free'
-  | 'teleportation'
-  | 'qkd'
-  | 'identical';
+  | 'interference';
 
 export interface EffectLink {
   title: string;
@@ -331,126 +327,6 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
       ru: [
         { title: 'Википедия: Опыт Юнга', url: wiki('ru', 'Опыт_Юнга') },
         { title: 'Википедия: Интерференция (физика)', url: wiki('ru', 'Интерференция_(физика)') },
-      ],
-    },
-  },
-  'interaction-free': {
-    id: 'interaction-free',
-    name: { en: 'Interaction-free measurement', ru: 'Измерение без взаимодействия' },
-    summary: {
-      en:
-        'A photon in an interferometer takes both arms at once and always ends in the bright detector. A live bomb in one arm spoils that, ' +
-        'so sometimes the photon reaches the dark detector — proving the bomb is there although the photon never touched it (Elitzur–Vaidman).',
-      ru:
-        'Фотон в интерферометре идёт сразу по обоим плечам и всегда попадает в «светлый» детектор. Живая бомба в одном из плеч это портит, ' +
-        'и иногда фотон попадает в «тёмный» детектор — доказывая, что бомба там, хотя фотон её не касался (Элицур — Вайдман).',
-    },
-    links: {
-      en: [
-        {
-          title: 'Wikipedia: Elitzur–Vaidman bomb tester',
-          url: wiki('en', 'Elitzur–Vaidman_bomb_tester'),
-        },
-        {
-          title: 'Wikipedia: Interaction-free measurement',
-          url: wiki('en', 'Interaction-free_measurement'),
-        },
-      ],
-      ru: [
-        {
-          title: 'Википедия (англ.): тестер бомб Элицура — Вайдмана',
-          url: wiki('en', 'Elitzur–Vaidman_bomb_tester'),
-        },
-        {
-          title: 'Википедия: Интерферометр Маха — Цендера',
-          url: wiki('ru', 'Интерферометр_Маха_—_Цендера'),
-        },
-      ],
-    },
-  },
-  teleportation: {
-    id: 'teleportation',
-    name: { en: 'Teleportation and no-cloning', ru: 'Телепортация и запрет клонирования' },
-    summary: {
-      en:
-        'An unknown quantum state cannot be copied, and looking at it destroys it. But it can be moved: a joint measurement with one half of an entangled pair ' +
-        'gives two ordinary bits, and with them the far half is turned into the original. The original is gone — nothing travels faster than the two bits.',
-      ru:
-        'Неизвестное квантовое состояние нельзя скопировать, а взгляд на него его разрушает. Но его можно перенести: совместное измерение с половинкой запутанной пары ' +
-        'даёт два обычных бита, и по ним дальнюю половинку превращают в оригинал. Оригинала больше нет — и ничто не летит быстрее этих двух битов.',
-    },
-    links: {
-      en: [
-        { title: 'Wikipedia: Quantum teleportation', url: wiki('en', 'Quantum_teleportation') },
-        { title: 'Wikipedia: No-cloning theorem', url: wiki('en', 'No-cloning_theorem') },
-      ],
-      ru: [
-        { title: 'Википедия: Квантовая телепортация', url: wiki('ru', 'Квантовая_телепортация') },
-        {
-          title: 'Википедия: Теорема о запрете клонирования',
-          url: wiki('ru', 'Теорема_о_запрете_клонирования'),
-        },
-      ],
-    },
-  },
-  qkd: {
-    id: 'qkd',
-    name: { en: 'Quantum key distribution (BB84)', ru: 'Квантовое распределение ключа (BB84)' },
-    summary: {
-      en:
-        'Send a secret key as single photons, each in a randomly chosen basis. An eavesdropper has to look to learn anything, and looking with the wrong glasses ' +
-        'scrambles the photon — so comparing a few bits in public reveals any spy. Banks and governments already use this.',
-      ru:
-        'Секретный ключ передают одиночными фотонами, каждый — в случайно выбранном базисе. Шпиону, чтобы что-то узнать, приходится смотреть, а взгляд «не в тех очках» ' +
-        'портит фотон — поэтому сверка нескольких бит в открытую выдаёт любого шпиона. Это уже используют банки и правительства.',
-    },
-    links: {
-      en: [
-        { title: 'Wikipedia: BB84', url: wiki('en', 'BB84') },
-        {
-          title: 'Wikipedia: Quantum key distribution',
-          url: wiki('en', 'Quantum_key_distribution'),
-        },
-      ],
-      ru: [
-        { title: 'Википедия: BB84', url: wiki('ru', 'BB84') },
-        {
-          title: 'Википедия: Квантовое распределение ключа',
-          url: wiki('ru', 'Квантовое_распределение_ключа'),
-        },
-      ],
-    },
-  },
-  identical: {
-    id: 'identical',
-    name: {
-      en: 'Identical particles: bosons and fermions',
-      ru: 'Тождественные частицы: бозоны и фермионы',
-    },
-    summary: {
-      en:
-        'Two identical quantum particles cannot be told apart even in principle, so the ways they could swap places interfere. ' +
-        'For bosons (photons, helium-4) the swaps add up and they bunch together; for fermions (electrons) they cancel and the particles keep apart — that is why atoms have shells.',
-      ru:
-        'Две тождественные квантовые частицы нельзя различить даже в принципе, поэтому варианты, где они поменялись местами, интерферируют. ' +
-        'У бозонов (фотоны, гелий-4) эти варианты складываются, и частицы сбиваются в кучу; у фермионов (электроны) — гасят друг друга, и частицы держатся порознь. Поэтому у атомов есть оболочки.',
-    },
-    links: {
-      en: [
-        { title: 'Wikipedia: Hong–Ou–Mandel effect', url: wiki('en', 'Hong–Ou–Mandel_effect') },
-        { title: 'Wikipedia: Identical particles', url: wiki('en', 'Identical_particles') },
-        {
-          title: 'Wikipedia: Pauli exclusion principle',
-          url: wiki('en', 'Pauli_exclusion_principle'),
-        },
-      ],
-      ru: [
-        { title: 'Википедия: Тождественные частицы', url: wiki('ru', 'Тождественные_частицы') },
-        { title: 'Википедия: Принцип Паули', url: wiki('ru', 'Принцип_Паули') },
-        {
-          title: 'Википедия (англ.): эффект Хонга — У — Манделя',
-          url: wiki('en', 'Hong–Ou–Mandel_effect'),
-        },
       ],
     },
   },
