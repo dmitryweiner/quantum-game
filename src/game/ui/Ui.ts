@@ -381,15 +381,16 @@ export class Ui {
         'ul',
         { class: 'level-list' },
         h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
-        h(
-          'li',
-          {},
+        ...(['snake', 'tanks'] as const).map((id) =>
           h(
-            'button',
-            { class: 'btn', onclick: pick('arcade:snake') },
-            T().arcade.snake.menu,
-            bestScore('snake') > 0 &&
-              h('span', { class: 'done' }, T().arcade.best(bestScore('snake'))),
+            'li',
+            {},
+            h(
+              'button',
+              { class: 'btn', onclick: pick(`arcade:${id}`) },
+              T().arcade[id].menu,
+              bestScore(id) > 0 && h('span', { class: 'done' }, T().arcade.best(bestScore(id))),
+            ),
           ),
         ),
       ),

@@ -134,7 +134,10 @@ export class Superposition {
    * `renormalize: false` keeps a lossy norm (after `absorb`).
    */
   evolve(dt: number, renormalize = true): void {
-    if (dt <= 0) return;
+    if (dt <= 0) {
+      if (renormalize) this.normalize();
+      return;
+    }
     // Step small enough for both hopping and the highest barrier.
     let vMax = 0;
     for (const v of this.potential) vMax = Math.max(vMax, Math.abs(v));

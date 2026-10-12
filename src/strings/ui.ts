@@ -45,6 +45,22 @@ const EN = {
     record: 'New record! 🏆',
     again: '↻ Play again',
     quantumTitle: 'What is quantum here',
+    tanks: {
+      title: 'Quantum Tanks',
+      menu: '🛡️ Quantum Tanks',
+      goal: 'Defend the base 🦅 — the enemy tanks 👾 are quantum',
+      hud: (hp: number, score: number, wave: number, best: number) =>
+        `🦅 ${hp} · 👾 ${score} · 🌊 ${wave} · 🏆 ${best}`,
+      rules: [
+        'Out of your sight an enemy tank is a cloud of ghosts drifting towards the base.',
+        'Your turret is your eye: what it sees collapses into one tank, and a tank you keep looking at cannot move (Zeno).',
+        'A shell asks every cell it crosses “is a tank here?” — through a cloud it hits with the chance its ghost shows; a miss pushes the cloud away from that cell.',
+        'The violet shield stops you and your shells, but enemy clouds tunnel through it. Bricks break, concrete does not.',
+      ],
+      controlsTouch: 'Left stick: drive · Right stick: aim and fire.',
+      controlsDesktop: 'WASD: drive · Mouse: aim · Click or Space: fire.',
+      wave: (n: number) => `Wave ${n}!`,
+    },
     snake: {
       title: 'Quantum Snake',
       menu: '🐍 Quantum Snake',
@@ -254,6 +270,22 @@ const RU: Strings = {
     record: 'Новый рекорд! 🏆',
     again: '↻ Ещё раз',
     quantumTitle: 'Что здесь квантового',
+    tanks: {
+      title: 'Квантовые танки',
+      menu: '🛡️ Квантовые танки',
+      goal: 'Защити штаб 🦅 — вражеские танки 👾 квантовые',
+      hud: (hp: number, score: number, wave: number, best: number) =>
+        `🦅 ${hp} · 👾 ${score} · 🌊 ${wave} · 🏆 ${best}`,
+      rules: [
+        'Вне твоего взгляда вражеский танк — облако призраков, которое ползёт к штабу.',
+        'Башня — твой глаз: что она видит, схлопывается в один танк, а танк, на который смотришь не отрываясь, не может двигаться (Зенон).',
+        'Снаряд спрашивает каждую клетку на пути: «здесь танк?» — сквозь облако он попадает с вероятностью, равной яркости призрака; промах выталкивает облако из этой клетки.',
+        'Фиолетовый щит не пускает тебя и твои снаряды, а облака врагов сквозь него туннелируют. Кирпичи рушатся, бетон — нет.',
+      ],
+      controlsTouch: 'Левый стик — ехать · Правый стик — целиться и стрелять.',
+      controlsDesktop: 'WASD — ехать · Мышь — целиться · Клик или пробел — огонь.',
+      wave: (n: number) => `Волна ${n}!`,
+    },
     snake: {
       title: 'Квантовая змейка',
       menu: '🐍 Квантовая змейка',

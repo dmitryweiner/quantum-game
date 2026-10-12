@@ -2,7 +2,10 @@ import type Phaser from 'phaser';
 import { ui } from './ui';
 
 /** Ids of the arcade games and the scenes that play them. */
-export const ARCADE_SCENES: Readonly<Record<string, string>> = { 'arcade:snake': 'Snake' };
+export const ARCADE_SCENES: Readonly<Record<string, string>> = {
+  'arcade:snake': 'Snake',
+  'arcade:tanks': 'Tanks',
+};
 
 /**
  * Opens the main menu over the current scene; picking an entry stops this
