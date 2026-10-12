@@ -6,7 +6,7 @@ import { mulberry32 } from '../../quantum/rng';
 import { CELL, COLORS, UI_FONT } from '../constants';
 import { px } from '../display';
 import { emojiTexture } from '../emoji';
-import { BRICK_VARIANTS, brickTexture } from '../textures';
+import { drawTiles } from '../render/tiles';
 import { Player } from '../entities/Player';
 import { QuantumObject } from '../entities/QuantumObject';
 import { EntanglementThread, Qubit } from '../entities/Qubit';
@@ -17,6 +17,7 @@ import type { Gaze } from '../input/types';
 import { GazeCone } from '../systems/GazeCone';
 import { LevelSim, SLITS, type LossReason, type SimEvent } from '../systems/LevelSim';
 import { play } from '../audio';
+import { openMainMenu } from '../menu';
 import { ui } from '../ui';
 import { newChshState, type ChshState } from '../ui/ChshPanel';
 import { markCompleted } from '../ui/progress';
@@ -142,6 +143,7 @@ export class LevelScene extends Phaser.Scene {
     const overlay = ui();
     overlay.closeScreen();
     overlay.setHud(this.level);
+    overlay.setLevelTools(true);
     // The HUD is now visible: lay the map out below its real height right away.
     this.layout();
     overlay.setTimer(this.sim.timeLeft);
@@ -479,57 +481,11 @@ export class LevelScene extends Phaser.Scene {
   private openMenu(): void {
     this.running = false;
     ui().setClassicalBanner(null);
-    ui().showMenu((id) => this.scene.restart({ levelId: id }));
+    openMainMenu(this);
   }
 
   private drawMap(): void {
-    const g = this.add.graphics();
-    this.worldLayer.add(g);
-    const { map } = this.sim;
-    for (let row = 0; row < map.rows; row++) {
-      for (let col = 0; col < map.cols; col++) {
-        const x = col * CELL;
-        const y = row * CELL;
-        const tile = map.tiles[row]![col]!;
-        if (tile === 'wall') {
-          this.worldLayer.add(
-            this.add
-              .image(
-                x + CELL / 2,
-                y + CELL / 2,
-                brickTexture(this, (col * 7 + row * 3) % BRICK_VARIANTS),
-              )
-              .setDisplaySize(CELL, CELL),
-          );
-        } else if (tile === 'barrier') {
-          // A force field: violet, with ripples.
-          g.fillStyle(COLORS.barrier, 0.45);
-          g.fillRect(x, y, CELL, CELL);
-          g.lineStyle(2, COLORS.barrier, 0.9);
-          for (let k = 1; k <= 3; k++) {
-            const yy = y + (k * CELL) / 4;
-            g.beginPath();
-            g.moveTo(x, yy);
-            for (let t = 0; t <= 8; t++) {
-              g.lineTo(x + (t * CELL) / 8, yy + Math.sin(t * 1.6 + k) * 3);
-            }
-            g.strokePath();
-          }
-        } else if (tile === 'glass') {
-          g.fillStyle(COLORS.glass, 0.12);
-          g.fillRect(x, y, CELL, CELL);
-          g.lineStyle(3, COLORS.glass, 0.6);
-          g.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6);
-          g.lineStyle(2, COLORS.glass, 0.4);
-          g.lineBetween(x + 14, y + CELL - 14, x + CELL - 14, y + 14);
-        } else {
-          g.fillStyle(COLORS.floor, 1);
-          g.fillRect(x, y, CELL, CELL);
-          g.lineStyle(1, COLORS.floorLine, 1);
-          g.strokeRect(x, y, CELL, CELL);
-        }
-      }
-    }
+    drawTiles(this, this.worldLayer, this.sim.map);
   }
 
   private drawObjects(): void {

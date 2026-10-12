@@ -78,5 +78,8 @@ controls, check it **on phone sizes as well as desktop**:
   wins and the classical one loses (PLAN.md §1.4). When designing or tuning a
   level, write the strategies first and tune the numbers until the test
   passes; don't guess.
+- `src/arcade/` — the quantum arcades (PLAN.md §9), engine-free like
+  LevelSim; scenes in `src/game/scenes/*Scene.ts` only render them. Open one
+  directly with `?level=arcade:snake`.
 - `src/strings/` + `src/i18n/` — every player-facing text, in English and
   Russian. A missing translation fails typecheck or tests.

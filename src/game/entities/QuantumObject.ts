@@ -20,7 +20,7 @@ export class QuantumObject {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly layer: Phaser.GameObjects.Layer,
-    private readonly body: QuantumBody,
+    readonly body: QuantumBody,
   ) {
     const { lattice } = body.psi;
     this.heat = scene.add.graphics();
@@ -74,6 +74,12 @@ export class QuantumObject {
       this.heat.fillStyle(COLORS.ghostHeat, 0.28 * rel);
       this.heat.fillRect(x - CELL / 2 + 2, y - CELL / 2 + 2, CELL - 4, CELL - 4);
     }
+  }
+
+  /** Removes its sprites (when the object is replaced, e.g. an eaten apple). */
+  destroy(): void {
+    for (const g of this.ghosts) g.destroy();
+    this.heat.destroy();
   }
 
   /** Expanding ring where the object was just found. */

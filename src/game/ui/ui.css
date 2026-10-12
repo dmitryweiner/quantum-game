@@ -408,3 +408,14 @@
   text-align: center;
   pointer-events: auto;
 }
+
+.panel .rules {
+  margin: 6px 0;
+  padding-left: 20px;
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+.panel .rules li {
+  margin: 4px 0;
+}

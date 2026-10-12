@@ -19,3 +19,25 @@ export function markCompleted(id: string): void {
     // Private mode or blocked storage: progress just is not kept.
   }
 }
+
+const BEST = 'quantum-game:best:';
+
+/** Best arcade score for a game id (0 if none or storage is blocked). */
+export function bestScore(id: string): number {
+  try {
+    return Number(localStorage.getItem(BEST + id) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Saves `score` if it beats the record; returns true for a new record. */
+export function saveBest(id: string, score: number): boolean {
+  if (score <= bestScore(id)) return false;
+  try {
+    localStorage.setItem(BEST + id, String(score));
+  } catch {
+    // Not remembered.
+  }
+  return true;
+}

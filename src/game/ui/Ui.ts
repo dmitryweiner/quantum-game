@@ -9,8 +9,11 @@ import { play, setSoundEnabled, soundEnabled } from '../audio';
 import { h, type Child } from './dom';
 import { chshPanel, type ChshState } from './ChshPanel';
 import type { InspectInfo } from './inspect';
-import { completedLevels } from './progress';
+import { bestScore, completedLevels } from './progress';
 import './ui.css';
+
+/** What the HUD shows: a level, or an arcade game dressed as one. */
+export type HudInfo = Pick<LevelDef, 'chapter' | 'title' | 'goal'>;
 
 /**
  * DOM overlay above the canvas: HUD bar and full-screen panels. Text-heavy
@@ -23,7 +26,7 @@ export class Ui {
   private readonly hudGoal: HTMLElement;
   private readonly hudTimer: HTMLElement;
   private screen: HTMLElement | null = null;
-  private hudLevel: LevelDef | null = null;
+  private hudLevel: HudInfo | null = null;
   private readonly langButton: HTMLButtonElement;
   private readonly glassesButton: HTMLButtonElement;
   private readonly inspectButton: HTMLButtonElement;
@@ -178,7 +181,7 @@ export class Ui {
     return this.screen !== null;
   }
 
-  setHud(level: LevelDef | null): void {
+  setHud(level: HudInfo | null): void {
     this.hudLevel = level;
     this.hud.hidden = level === null;
     if (!level) return;
@@ -371,6 +374,26 @@ export class Ui {
         ),
       ),
     ];
+    // Free play first: players like the sandbox most, and the arcades build on it.
+    content.push(
+      h('h2', {}, T().freePlay),
+      h(
+        'ul',
+        { class: 'level-list' },
+        h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
+        h(
+          'li',
+          {},
+          h(
+            'button',
+            { class: 'btn', onclick: pick('arcade:snake') },
+            T().arcade.snake.menu,
+            bestScore('snake') > 0 &&
+              h('span', { class: 'done' }, T().arcade.best(bestScore('snake'))),
+          ),
+        ),
+      ),
+    );
     for (const ch of chapters) {
       const levels = LEVELS.filter((l) => l.chapter === ch);
       const passed = levels.filter((l) => done.has(l.id)).length;
@@ -401,12 +424,6 @@ export class Ui {
       content.push(list);
     }
     content.push(
-      h('h2', {}, T().sandbox),
-      h(
-        'ul',
-        { class: 'level-list' },
-        h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
-      ),
       h(
         'details',
         { class: 'about' },
@@ -532,6 +549,67 @@ export class Ui {
       show,
       'chsh',
     );
+  }
+
+  /** Intro of an arcade game: goal, what is quantum here, controls. */
+  showArcadeIntro(
+    info: { title: string; goal: string; rules: readonly string[]; effects: readonly EffectId[] },
+    touch: boolean,
+    controls: { touch: string; desktop: string },
+    onStart: () => void,
+    onMenu: () => void,
+  ): void {
+    const show = () => this.showArcadeIntro(info, touch, controls, onStart, onMenu);
+    this.open(
+      [
+        h('h1', {}, info.title),
+        h('p', {}, info.goal),
+        h('h2', {}, T().arcade.quantumTitle),
+        h('ul', { class: 'rules' }, ...info.rules.map((r) => h('li', {}, r))),
+        h('p', { class: 'muted' }, touch ? controls.touch : controls.desktop),
+        h(
+          'p',
+          {},
+          h(
+            'button',
+            { class: 'btn', onclick: () => this.showLearnMore(info.effects, show) },
+            T().learnMore,
+          ),
+        ),
+      ],
+      [
+        { label: T().start, primary: true, run: onStart },
+        { label: T().menu, cancel: true, run: onMenu },
+      ],
+      show,
+    );
+  }
+
+  showArcadeOver(
+    score: number,
+    best: number,
+    record: boolean,
+    onAgain: () => void,
+    onMenu: () => void,
+  ): void {
+    const a = T().arcade;
+    this.open(
+      [
+        h('h1', {}, a.over),
+        h('p', { class: 'big' }, a.score(score)),
+        h('p', {}, record ? a.record : a.bestLine(best)),
+      ],
+      [
+        { label: a.again, primary: true, run: onAgain },
+        { label: T().menu, cancel: true, run: onMenu },
+      ],
+      () => this.showArcadeOver(score, best, record, onAgain, onMenu),
+    );
+  }
+
+  /** Arcades have no 🔍 button of their own yet. */
+  setLevelTools(visible: boolean): void {
+    this.inspectButton.hidden = !visible;
   }
 
   private effectsLink(level: LevelDef, back: () => void): HTMLElement {
