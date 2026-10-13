@@ -17,6 +17,19 @@ export const QUANTRIS = {
   lockDelay: 0.5,
   /** How many moves or turns on the ground restart the lock delay. */
   lockResets: 3,
+  /** Of the quantum pieces: share in two orientations (not two places). */
+  turnChance: 0.3,
+  /** Chance that the next piece arrives entangled with the current one. */
+  linkChance: 0.35,
+  /**
+   * Chance to tunnel through a one-cell overhang into the hole beneath it:
+   * exp(−2κd) with d = 1 cell, κ = 0.8 (game rule for a whole tetromino).
+   */
+  tunnelChance: Math.exp(-2 * 0.8),
+  /** Holding 👁 (Zeno) costs one look per this many seconds. */
+  holdCost: 1,
+  /** This many likelier outcomes in a row get a caption (the Born rule is no magic). */
+  streak: 5,
 } as const;
 
 type Shape = readonly (readonly [number, number])[];
@@ -80,35 +93,54 @@ export function pieceCells(kind: number, rot: number, x: number, y: number): [nu
   });
 }
 
-/** One possible position of the falling piece. */
+/** One possible place of the falling piece: column and orientation. */
 export interface Branch {
   x: number;
+  rot: number;
   /** Probability (|amplitude|²) of this branch. */
   p: number;
 }
 
 export interface Piece {
   kind: number;
-  rot: number;
   y: number;
-  /** One branch: a definite piece; two: a superposition of two places. */
+  /** One branch: a definite piece; two: a superposition of two places or two turns. */
   branches: Branch[];
+  /**
+   * Entangled with the piece before it: when that one settles in its branch
+   * k, this one settles in branch 1 − k — at once, before it even appears.
+   */
+  linked: boolean;
 }
 
 export type QuantrisEvent =
   /** `chance`: the probability the kept place had (a rare one is worth naming). */
   | { type: 'collapsed'; kept: number; chance: number }
+  /** The next piece settled at once, because the current one did (entanglement). */
+  | { type: 'spooky'; kept: number; distance: number }
   | { type: 'merged' }
+  /** The piece tunnelled `rows` rows down through a thin overhang. */
+  | { type: 'tunnelled'; rows: number }
+  /** `count` likelier outcomes in a row. */
+  | { type: 'streak'; count: number }
   | { type: 'locked' }
   | { type: 'lines'; count: number }
   | { type: 'over' };
 
+const cellsKey = (kind: number, b: Branch, y: number) =>
+  pieceCells(kind, b.rot, b.x, y)
+    .map(([cx, cy]) => `${cx},${cy}`)
+    .sort()
+    .join(';');
+
 /**
- * Quantris, engine-free (PLAN.md §9.3). A piece may arrive in superposition
- * of two horizontal places. Touching the stack is a measurement: the Born
- * rule picks which place was real — if it is the one that touched, the piece
- * lands; if not, it falls on as a definite piece. A look collapses it early.
- * Two branches pushed onto the same place merge into one definite piece.
+ * Quantris, engine-free (PLAN.md §9.3, PLAN-IMPROVEMENTS.md §4.2). A piece may
+ * arrive in superposition of two places or two orientations. Touching the
+ * stack is a measurement: the Born rule picks which branch was real — if it
+ * is the one that touched, the piece lands; if not, it falls on as a definite
+ * piece. A look collapses it early; holding the look keeps it still (Zeno).
+ * Two identical branches merge into one definite piece. The next piece may
+ * be entangled with the current one; a piece on a thin overhang may tunnel.
  */
 export class QuantrisGame {
   readonly board: number[][] = Array.from({ length: QUANTRIS.rows }, () =>
@@ -125,22 +157,27 @@ export class QuantrisGame {
   private classical = false;
   /** The (definite) piece rests on the stack and locks after QUANTRIS.lockDelay. */
   grounded = false;
+  /** 👁 held: the piece is watched and does not fall (Zeno). */
+  holding = false;
+  private holdAcc = 0;
   private fallAcc = 0;
   private lockAcc = 0;
   private lockResets = 0;
+  private expected = 0;
 
   constructor(private readonly rng: Rng) {
     this.next = this.makePiece();
     this.spawn([]);
   }
 
-  /** Switch classical physics on or off; on, pieces already in superposition settle in their likelier place. */
+  /** Switch classical physics on or off; on, pieces already in superposition settle in their likelier branch. */
   setClassical(on: boolean): void {
     this.classical = on;
     if (!on) return;
     for (const piece of [this.piece, this.next]) {
       const [a, b] = piece.branches;
-      if (a && b) piece.branches = [{ x: (a.p >= b.p ? a : b).x, p: 1 }];
+      if (a && b) piece.branches = [{ ...(a.p >= b.p ? a : b), p: 1 }];
+      piece.linked = false;
     }
   }
 
@@ -153,35 +190,52 @@ export class QuantrisGame {
     const width = BOX[kind]!;
     const x0 = Math.floor((QUANTRIS.cols - width) / 2);
     if (this.classical || this.rng.next() >= QUANTRIS.quantumChance)
-      return { kind, rot: 0, y: 0, branches: [{ x: x0, p: 1 }] };
+      return { kind, y: 0, branches: [{ x: x0, rot: 0, p: 1 }], linked: false };
+    const p = this.rng.next() < 0.5 ? 0.5 : this.rng.next() < 0.5 ? 0.7 : 0.3;
+    // The O looks the same turned: it can only be in two places.
+    if (kind !== 1 && this.rng.next() < QUANTRIS.turnChance)
+      return {
+        kind,
+        y: 0,
+        branches: [
+          { x: x0, rot: 0, p },
+          { x: x0, rot: 1, p: 1 - p },
+        ],
+        linked: false,
+      };
     // Two places a few columns apart, both inside the board.
     const shift = 2 + Math.floor(this.rng.next() * 3);
     const left = Math.max(0, x0 - Math.ceil(shift / 2));
     const right = Math.min(QUANTRIS.cols - width, left + shift);
-    const p = this.rng.next() < 0.5 ? 0.5 : this.rng.next() < 0.5 ? 0.7 : 0.3;
     return {
       kind,
-      rot: 0,
       y: 0,
       branches: [
-        { x: left, p },
-        { x: right, p: 1 - p },
+        { x: left, rot: 0, p },
+        { x: right, rot: 0, p: 1 - p },
       ],
+      linked: false,
     };
   }
 
   private spawn(events: QuantrisEvent[]): void {
     this.piece = this.next;
     this.next = this.makePiece();
+    // Entangle the newcomer with the piece now falling: opposite branches, mirrored chances.
+    if (
+      this.piece.branches.length === 2 &&
+      this.next.branches.length === 2 &&
+      this.rng.next() < QUANTRIS.linkChance
+    ) {
+      this.next.linked = true;
+      this.next.branches[0]!.p = this.piece.branches[1]!.p;
+      this.next.branches[1]!.p = this.piece.branches[0]!.p;
+    }
     this.fallAcc = 0;
     this.grounded = false;
     this.lockAcc = 0;
     this.lockResets = 0;
-    if (
-      this.piece.branches.some(
-        (b) => !this.fits(this.piece.kind, this.piece.rot, b.x, this.piece.y),
-      )
-    ) {
+    if (this.piece.branches.some((b) => !this.fits(this.piece.kind, b.rot, b.x, this.piece.y))) {
       this.over = true;
       events.push({ type: 'over' });
     }
@@ -201,10 +255,10 @@ export class QuantrisGame {
   move(dx: -1 | 1): QuantrisEvent[] {
     const events: QuantrisEvent[] = [];
     if (this.over) return events;
-    const { kind, rot, y } = this.piece;
+    const { kind, y } = this.piece;
     let moved = false;
     for (const b of this.piece.branches)
-      if (this.fits(kind, rot, b.x + dx, y)) {
+      if (this.fits(kind, b.rot, b.x + dx, y)) {
         b.x += dx;
         moved = true;
       }
@@ -222,15 +276,16 @@ export class QuantrisGame {
     const events: QuantrisEvent[] = [];
     if (this.over) return events;
     const { kind, y } = this.piece;
-    const rot = this.piece.rot + dir;
     const kicks = kind === 0 ? [0, -1, 1, -2, 2] : [0, -1, 1];
     const xs = this.piece.branches.map((b) => {
-      const k = kicks.find((d) => this.fits(kind, rot, b.x + d, y));
+      const k = kicks.find((d) => this.fits(kind, b.rot + dir, b.x + d, y));
       return k === undefined ? null : b.x + k;
     });
     if (xs.some((x) => x === null)) return events;
-    this.piece.rot = rot;
-    this.piece.branches.forEach((b, i) => (b.x = xs[i]!));
+    this.piece.branches.forEach((b, i) => {
+      b.x = xs[i]!;
+      b.rot += dir;
+    });
     this.mergeIfSame(events);
     this.afterShift();
     return events;
@@ -250,15 +305,18 @@ export class QuantrisGame {
   }
 
   private canFall(): boolean {
-    const { kind, rot, y } = this.piece;
-    return this.piece.branches.every((b) => this.fits(kind, rot, b.x, y + 1));
+    const { kind, y } = this.piece;
+    return this.piece.branches.every((b) => this.fits(kind, b.rot, b.x, y + 1));
   }
 
   private mergeIfSame(events: QuantrisEvent[]): void {
     const [a, b] = this.piece.branches;
-    if (a && b && a.x === b.x) {
+    const { kind, y } = this.piece;
+    if (a && b && cellsKey(kind, a, y) === cellsKey(kind, b, y)) {
       // Identical branches are one and the same state: their amplitudes add up.
-      this.piece.branches = [{ x: a.x, p: 1 }];
+      this.piece.branches = [{ ...a, p: 1 }];
+      // (An entangled next piece stays in superposition: nothing measured this one.)
+      this.next.linked = false;
       events.push({ type: 'merged' });
     }
   }
@@ -272,12 +330,45 @@ export class QuantrisGame {
     return events;
   }
 
-  private collapse(events: QuantrisEvent[], prefer?: number): number {
+  /**
+   * Hold the look (Zeno): the piece settles if it was in superposition, then
+   * does not fall while watched. Costs a look now and one per holdCost seconds.
+   */
+  hold(on: boolean): QuantrisEvent[] {
+    const events: QuantrisEvent[] = [];
+    if (!on || this.over) {
+      this.holding = false;
+      return events;
+    }
+    if (this.holding || this.looks <= 0) return events;
+    this.looks--;
+    if (this.piece.branches.length === 2) this.collapse(events);
+    this.holding = true;
+    this.holdAcc = 0;
+    return events;
+  }
+
+  private collapse(events: QuantrisEvent[]): number {
     const [a, b] = this.piece.branches as [Branch, Branch];
-    const keep = prefer ?? (this.rng.next() < a.p ? 0 : 1);
+    const keep = this.rng.next() < a.p ? 0 : 1;
     const kept = keep === 0 ? a : b;
-    this.piece.branches = [{ x: kept.x, p: 1 }];
+    this.piece.branches = [{ ...kept, p: 1 }];
     events.push({ type: 'collapsed', kept: keep, chance: kept.p });
+    // The Born rule at work: likelier outcomes come up more often — no more.
+    if (kept.p > 0.5) {
+      if (++this.expected >= QUANTRIS.streak) {
+        events.push({ type: 'streak', count: this.expected });
+        this.expected = 0;
+      }
+    } else if (kept.p < 0.5) this.expected = 0;
+    // Its entangled partner settles at once, in the opposite branch.
+    if (this.next.linked && this.next.branches.length === 2) {
+      const other = this.next.branches[1 - keep]!;
+      const distance = Math.abs(other.x - kept.x) + Math.abs(other.rot - kept.rot);
+      this.next.branches = [{ ...other, p: 1 }];
+      this.next.linked = false;
+      events.push({ type: 'spooky', kept: 1 - keep, distance });
+    }
     return keep;
   }
 
@@ -287,8 +378,8 @@ export class QuantrisGame {
    * delay); otherwise it keeps falling. Returns true if the piece moved down.
    */
   private fall(events: QuantrisEvent[]): boolean {
-    const { kind, rot, y } = this.piece;
-    const blocked = this.piece.branches.map((b) => !this.fits(kind, rot, b.x, y + 1));
+    const { kind, y } = this.piece;
+    const blocked = this.piece.branches.map((b) => !this.fits(kind, b.rot, b.x, y + 1));
     if (!blocked.some(Boolean)) {
       this.piece.y++;
       return true;
@@ -307,10 +398,44 @@ export class QuantrisGame {
     return false;
   }
 
+  /**
+   * Where a definite piece resting here could tunnel to: the resting row
+   * below a barrier at most one cell thick in each of its columns, with a
+   * hole the piece fits in. Null if there is none.
+   */
+  tunnelTarget(y = this.piece.y): number | null {
+    const [b] = this.piece.branches;
+    if (this.classical || !b || this.piece.branches.length !== 1) return null;
+    const { kind } = this.piece;
+    if (this.fits(kind, b.rot, b.x, y + 1)) return null;
+    const cells = pieceCells(kind, b.rot, b.x, y);
+    for (let d = 2; y + d < QUANTRIS.rows; d++) {
+      if (!this.fits(kind, b.rot, b.x, y + d)) continue;
+      // Every column crosses at most one filled cell on the way: a thin barrier.
+      const thin = cells.every(([cx, cy]) => {
+        let filled = 0;
+        for (let r = cy + 1; r < cy + d; r++) if (r >= 0 && this.board[r]![cx]! >= 0) filled++;
+        return filled <= 1;
+      });
+      if (!thin) return null;
+      let land = y + d;
+      while (this.fits(kind, b.rot, b.x, land + 1)) land++;
+      return land;
+    }
+    return null;
+  }
+
   private lock(events: QuantrisEvent[]): void {
-    const { kind, rot, y } = this.piece;
-    const x = this.piece.branches[0]!.x;
-    for (const [cx, cy] of pieceCells(kind, rot, x, y)) if (cy >= 0) this.board[cy]![cx] = kind;
+    const { kind } = this.piece;
+    const b = this.piece.branches[0]!;
+    // Locking is a measurement too: maybe the piece was already beneath the overhang.
+    const target = this.tunnelTarget();
+    if (target !== null && this.rng.next() < QUANTRIS.tunnelChance) {
+      events.push({ type: 'tunnelled', rows: target - this.piece.y });
+      this.piece.y = target;
+    }
+    const { y } = this.piece;
+    for (const [cx, cy] of pieceCells(kind, b.rot, b.x, y)) if (cy >= 0) this.board[cy]![cx] = kind;
     events.push({ type: 'locked' });
     const full = this.board
       .map((row, i) => (row.every((c) => c >= 0) ? i : -1))
@@ -326,6 +451,7 @@ export class QuantrisGame {
       this.level = 1 + Math.floor(this.lines / QUANTRIS.linesPerLevel);
       events.push({ type: 'lines', count: full.length });
     }
+    this.holding = false;
     this.spawn(events);
   }
 
@@ -352,6 +478,16 @@ export class QuantrisGame {
   update(dt: number): QuantrisEvent[] {
     const events: QuantrisEvent[] = [];
     if (this.over) return events;
+    if (this.holding) {
+      // Watched: nothing falls and nothing locks — but the looks run out.
+      this.holdAcc += dt;
+      if (this.holdAcc >= QUANTRIS.holdCost) {
+        this.holdAcc -= QUANTRIS.holdCost;
+        if (this.looks > 0) this.looks--;
+        if (this.looks <= 0) this.holding = false;
+      }
+      return events;
+    }
     if (this.grounded) {
       this.lockAcc += dt;
       if (this.lockAcc >= QUANTRIS.lockDelay) this.lock(events);

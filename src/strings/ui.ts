@@ -84,11 +84,16 @@ const EN = {
         'Touching the stack is a measurement: the piece turns out to be in one of its places, at random but by those chances. If it is not the place that touched, it falls on.',
         'Press 👁 to look and settle it early. Looks are few; each cleared line gives one back.',
         'Push both places against a wall until they meet: two identical places are one — the piece becomes certain.',
+        'Some pieces are in two orientations at once instead of two places.',
+        '🔗 The next piece may be entangled with the current one: the moment the current one settles, the next one is settled too — in the opposite place.',
+        'Hold 👁 and the watched piece stands still (Zeno) — one look a second.',
+        'A piece over a thin overhang may tunnel through it into the hole beneath — the faint outline shows where, and the chance.',
       ],
+      streak: (n: number) => `🎲 ${n} likely outcomes in a row — that is the Born rule, not luck`,
       controlsTouch:
-        'On the well: drag sideways to move, drag down to speed up, flick down to drop. Tap to turn (two fingers or left of the piece — the other way); tap a glowing piece to look. Buttons: ◀ ▶ move, ⟳ turn, 👁 look, ▼ down, ⏬ drop.',
+        'On the well: drag sideways to move, drag down to speed up, flick down to drop. Tap to turn (two fingers or left of the piece — the other way); tap a glowing piece to look. Buttons: ◀ ▶ move, ⟳ turn, 👁 look (hold to freeze), ▼ down, ⏬ drop.',
       controlsDesktop:
-        '← → move · ↑ / X turn · Z turn back · ↓ down · Space drop · L look. A landed piece can still slide for half a second.',
+        '← → move · ↑ / X turn · Z turn back · ↓ down · Space drop · L look (hold to freeze). A landed piece can still slide for half a second.',
       aria: {
         left: 'Move left',
         right: 'Move right',
@@ -405,11 +410,16 @@ const RU: Strings = {
         'Касание кучи — это измерение: фигура оказывается в одном из мест, случайно, но с этими шансами. Если это не то место, что коснулось, она падает дальше.',
         'Нажми 👁, чтобы посмотреть и определить фигуру заранее. Взглядов мало; каждая собранная линия даёт ещё один.',
         'Упри оба места в стену, пока они не совпадут: два одинаковых места — это одно, и фигура становится определённой.',
+        'Некоторые фигуры повёрнуты сразу двумя способами вместо двух мест.',
+        '🔗 Следующая фигура может быть запутана с текущей: как только текущая определится, определится и следующая — в противоположном месте.',
+        'Держи 👁 — и фигура под взглядом стоит на месте (Зенон). Это стоит один взгляд в секунду.',
+        'Фигура над тонким навесом может протуннелировать сквозь него в пустоту под ним — бледный контур показывает куда и с каким шансом.',
       ],
+      streak: (n: number) => `🎲 ${n} ожидаемых исхода подряд — это правило Борна, а не везение`,
       controlsTouch:
-        'На стакане: веди пальцем вбок — сдвиг, вниз — ускорить, резко смахни вниз — бросок. Тап — поворот (двумя пальцами или слева от фигуры — в другую сторону); тап по светящейся фигуре — взгляд. Кнопки: ◀ ▶ сдвиг, ⟳ поворот, 👁 взгляд, ▼ вниз, ⏬ бросок.',
+        'На стакане: веди пальцем вбок — сдвиг, вниз — ускорить, резко смахни вниз — бросок. Тап — поворот (двумя пальцами или слева от фигуры — в другую сторону); тап по светящейся фигуре — взгляд. Кнопки: ◀ ▶ сдвиг, ⟳ поворот, 👁 взгляд (держи — заморозить), ▼ вниз, ⏬ бросок.',
       controlsDesktop:
-        '← → сдвиг · ↑ / X поворот · Z поворот назад · ↓ вниз · Пробел — бросок · L — взгляд. Приземлившуюся фигуру ещё полсекунды можно двигать.',
+        '← → сдвиг · ↑ / X поворот · Z поворот назад · ↓ вниз · Пробел — бросок · L — взгляд (держи — заморозить). Приземлившуюся фигуру ещё полсекунды можно двигать.',
       aria: {
         left: 'Влево',
         right: 'Вправо',

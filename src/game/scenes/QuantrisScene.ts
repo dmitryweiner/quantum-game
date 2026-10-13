@@ -16,7 +16,14 @@ import { announce, finishArcade } from '../ui/shock';
 import { ArcadeMode } from '../ui/arcadeMode';
 import { ParadoxLog, SHOCK } from '../../arcade/paradox';
 
-const EFFECTS: EffectId[] = ['superposition', 'collapse', 'born-rule'];
+const EFFECTS: EffectId[] = [
+  'superposition',
+  'collapse',
+  'born-rule',
+  'entanglement',
+  'zeno',
+  'tunnelling',
+];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 /** One colour per tetromino (I O T S Z J L). */
 const COLOURS = [0x5fd3ff, 0xffd166, 0xc77dff, 0x7bd88f, 0xff6b6b, 0x5a8dee, 0xffa552];
@@ -48,9 +55,14 @@ export class QuantrisScene extends Phaser.Scene {
   private q!: QuantrisGame;
   private gfx!: Phaser.GameObjects.Graphics;
   private labels: Phaser.GameObjects.Text[] = [];
+  /** Grows the 🔗 for a moment when the entangled next piece settles. */
+  private linkFlash = 0;
   private running = false;
   private at = arrangement(false);
   private nextLabel!: Phaser.GameObjects.Text;
+  /** Chances of the next piece's two branches, and its 🔗 when it is entangled. */
+  private nextOdds: Phaser.GameObjects.Text[] = [];
+  private linkLabel!: Phaser.GameObjects.Text;
   /** Stoppers of the keys held down right now (auto-repeat). */
   private held = new Map<string, () => void>();
   private log = new ParadoxLog();
@@ -87,6 +99,19 @@ export class QuantrisScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setResolution(3);
+
+    const small = (size: number) => ({
+      fontFamily: UI_FONT,
+      fontSize: `${size}px`,
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#0b0e1a',
+      strokeThickness: 4,
+    });
+    this.nextOdds = [0, 1].map(() =>
+      this.add.text(0, 0, '', small(20)).setOrigin(0.5).setResolution(3),
+    );
+    this.linkLabel = this.add.text(0, 0, '🔗', small(26)).setOrigin(0.5).setResolution(3);
 
     const t = T().arcade.quantris;
     setHash('arcade:quantris');
@@ -126,7 +151,12 @@ export class QuantrisScene extends Phaser.Scene {
             },
             up: { label: '⏬', aria: t.aria.drop, press: () => this.act(() => this.q.hardDrop()) },
             a: { label: '⟳', aria: t.aria.rotate, press: () => this.act(() => this.q.rotate(1)) },
-            b: { label: '👁', aria: t.aria.look, press: () => this.act(() => this.q.look()) },
+            b: {
+              label: '👁',
+              aria: t.aria.look,
+              press: () => this.act(() => this.q.hold(true)),
+              release: () => this.q.hold(false),
+            },
           }
         : null,
     );
@@ -196,8 +226,8 @@ export class QuantrisScene extends Phaser.Scene {
       KeyW: () => this.q.rotate(1),
       KeyZ: () => this.q.rotate(-1),
       Space: () => this.q.hardDrop(),
-      KeyL: () => this.q.look(),
-      KeyE: () => this.q.look(),
+      KeyL: () => this.q.hold(true),
+      KeyE: () => this.q.hold(true),
     };
     kb.on('keydown', (e: KeyboardEvent) => {
       const fn = repeating[e.code] ?? once[e.code];
@@ -213,6 +243,7 @@ export class QuantrisScene extends Phaser.Scene {
       } else this.act(fn);
     });
     kb.on('keyup', (e: KeyboardEvent) => {
+      if (e.code === 'KeyL' || e.code === 'KeyE') this.q.hold(false);
       this.held.get(e.code)?.();
       this.held.delete(e.code);
     });
@@ -253,8 +284,8 @@ export class QuantrisScene extends Phaser.Scene {
     if (fingers === 2) return this.q.rotate(-1);
     const bx = x - this.at.board.x;
     const by = y - this.at.board.y;
-    const { kind, rot, y: py, branches } = this.q.piece;
-    const cells = branches.flatMap((b) => pieceCells(kind, rot, b.x, py));
+    const { kind, y: py, branches } = this.q.piece;
+    const cells = branches.flatMap((b) => pieceCells(kind, b.rot, b.x, py));
     const onPiece = cells.some(
       ([cx, cy]) => Math.abs(cx + 0.5 - bx) < 1 && Math.abs(cy + 0.5 - by) < 1,
     );
@@ -269,6 +300,14 @@ export class QuantrisScene extends Phaser.Scene {
         play('collapse');
         buzz(25);
         if (e.chance <= SHOCK.rareChance) announce(this.log, { kind: 'rare', value: e.chance });
+      } else if (e.type === 'spooky') {
+        this.linkFlash = 1;
+        announce(this.log, { kind: 'spooky', value: e.distance });
+      } else if (e.type === 'tunnelled') {
+        announce(this.log, { kind: 'tunnel', value: e.rows });
+      } else if (e.type === 'streak') {
+        ui().toast(T().arcade.quantris.streak(e.count));
+        play('chime');
       } else if (e.type === 'merged') play('snap');
       else if (e.type === 'locked') {
         play('hit');
@@ -351,17 +390,36 @@ export class QuantrisScene extends Phaser.Scene {
       g.lineBetween(bx, by + r * CELL, bx + w, by + r * CELL);
     q.board.forEach((row, r) => row.forEach((k, c) => k >= 0 && this.block(c, r, COLOURS[k]!, 1)));
 
-    // The falling piece: each place drawn as strong as its chance, with its landing shadow.
-    const { kind, rot, y, branches } = q.piece;
+    // The falling piece: each branch drawn as strong as its chance, with its landing shadow.
+    const { kind, y, branches } = q.piece;
     const quantum = branches.length > 1;
     branches.forEach((b, i) => {
       let land = y;
-      while (q.fits(kind, rot, b.x, land + 1)) land++;
+      while (q.fits(kind, b.rot, b.x, land + 1)) land++;
       g.lineStyle(3, COLOURS[kind]!, 0.35);
-      for (const [cx, cy] of pieceCells(kind, rot, b.x, land)) {
+      for (const [cx, cy] of pieceCells(kind, b.rot, b.x, land)) {
         g.strokeRoundedRect(bx + cx * CELL + 4, by + cy * CELL + 4, CELL - 8, CELL - 8, 8);
       }
-      const cells = pieceCells(kind, rot, b.x, y);
+      // Watched (👁 held): the piece glows and stands still.
+      if (q.holding) {
+        g.lineStyle(4, COLORS.gaze, 0.9);
+        for (const [cx, cy] of pieceCells(kind, b.rot, b.x, y))
+          if (cy >= 0)
+            g.strokeRoundedRect(bx + cx * CELL + 1, by + cy * CELL + 1, CELL - 2, CELL - 2, 9);
+      }
+      // A definite piece over a thin overhang: where it may tunnel to, with the chance.
+      const tunnel = quantum ? null : q.tunnelTarget(land);
+      if (tunnel !== null) {
+        g.lineStyle(3, COLORS.barrier, 0.8);
+        const tc = pieceCells(kind, b.rot, b.x, tunnel);
+        for (const [cx, cy] of tc)
+          g.strokeRoundedRect(bx + cx * CELL + 6, by + cy * CELL + 6, CELL - 12, CELL - 12, 6);
+        const top = tc.reduce((a, c) => (c[1] < a[1] ? c : a));
+        this.labels[1]!.setVisible(true)
+          .setText(`${Math.round(QUANTRIS.tunnelChance * 100)}%`)
+          .setPosition(bx + (top[0] + 0.5) * CELL, by + (top[1] + 0.5) * CELL);
+      }
+      const cells = pieceCells(kind, b.rot, b.x, y);
       for (const [cx, cy] of cells)
         if (cy >= 0) this.block(cx, cy, COLOURS[kind]!, quantum ? 0.25 + 0.6 * b.p : 1);
       const label = this.labels[i]!;
@@ -373,7 +431,7 @@ export class QuantrisScene extends Phaser.Scene {
           .setPosition(bx + (top[0] + 0.5) * CELL, by + Math.max(0.5, top[1] - 0.4) * CELL);
       }
     });
-    if (!quantum) this.labels[1]!.setVisible(false);
+    if (!quantum && q.tunnelTarget(this.landing()) === null) this.labels[1]!.setVisible(false);
 
     // Next piece.
     const { panel } = this.at;
@@ -382,18 +440,39 @@ export class QuantrisScene extends Phaser.Scene {
     this.nextLabel.setPosition((panel.x + 2.5) * CELL, (panel.y - 0.35) * CELL);
     const n = q.next;
     const two = n.branches.length > 1;
-    n.branches.forEach((_, i) => {
+    n.branches.forEach((b, i) => {
       const dx = two ? (i === 0 ? -0.2 : 0.2) : 0;
-      for (const [cx, cy] of pieceCells(n.kind, 0, 0, 0)) {
+      for (const [cx, cy] of pieceCells(n.kind, b.rot, 0, 0)) {
         this.block(
           panel.x + 0.5 + cx + dx,
-          panel.y + 0.8 + cy,
+          panel.y + 0.4 + cy,
           COLOURS[n.kind]!,
-          two ? 0.5 : 1,
+          two ? 0.25 + 0.5 * b.p : 1,
           false,
         );
       }
     });
+    // Its chances (they jump the instant an entangled current piece settles), and the 🔗.
+    this.nextOdds.forEach((t, i) => {
+      const b = n.branches[i];
+      t.setVisible(two && !!b)
+        .setText(b ? `${Math.round(b.p * 100)}%` : '')
+        .setPosition((panel.x + (i === 0 ? 1 : 4)) * CELL, (panel.y + 3.55) * CELL);
+    });
+    this.linkFlash = Math.max(0, this.linkFlash - 0.03);
+    this.linkLabel
+      .setVisible(n.linked || this.linkFlash > 0)
+      .setPosition((panel.x + 2.5) * CELL, (panel.y + 3.55) * CELL)
+      .setScale(1 + this.linkFlash);
+  }
+
+  /** Where the definite falling piece would land. */
+  private landing(): number {
+    const { kind, y, branches } = this.q.piece;
+    const b = branches[0]!;
+    let land = y;
+    while (this.q.fits(kind, b.rot, b.x, land + 1)) land++;
+    return land;
   }
 
   private layout(): void {
