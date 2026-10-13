@@ -10,7 +10,7 @@ import { autoRepeat } from '../input/repeat';
 import { h, type Child } from './dom';
 import { chshPanel, type ChshState } from './ChshPanel';
 import type { InspectInfo } from './inspect';
-import { bestScore, completedLevels, type ScoreEntry } from './progress';
+import { bestScore, completedLevels, type ScoreEntry, type ScoreMode } from './progress';
 import type { ParadoxKind } from '../../arcade/paradox';
 import './ui.css';
 
@@ -585,12 +585,15 @@ export class Ui {
     );
   }
 
-  /** Intro of an arcade game: goal, what is quantum here, controls. */
+  /**
+   * Intro of an arcade game: goal, what is quantum here, controls, and the
+   * choice of physics (S4) — quantum, or classical for comparison.
+   */
   showArcadeIntro(
     info: { title: string; goal: string; rules: readonly string[]; effects: readonly EffectId[] },
     touch: boolean,
     controls: { touch: string; desktop: string },
-    onStart: () => void,
+    onStart: (mode: ScoreMode) => void,
     onMenu: () => void,
   ): void {
     const show = () => this.showArcadeIntro(info, touch, controls, onStart, onMenu);
@@ -612,7 +615,8 @@ export class Ui {
         ),
       ],
       [
-        { label: T().start, primary: true, run: onStart },
+        { label: T().arcade.playQuantum, primary: true, run: () => onStart('quantum') },
+        { label: T().arcade.playClassical, run: () => onStart('classical') },
         { label: T().menu, cancel: true, run: onMenu },
       ],
       show,

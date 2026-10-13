@@ -152,4 +152,13 @@ describe('quantum snake', () => {
     }
     expect(far).toBeGreaterThan(0);
   });
+
+  it('classical mode: an unwatched apple stays where it is', () => {
+    const g = new SnakeGame(OPEN, mulberry32(9));
+    g.classical = true;
+    g.setEyes(false);
+    placeApple(g, 1, 1);
+    for (let i = 0; i < 20; i++) g.update(0.02);
+    expect(g.apples[0]!.psi.definiteSite()).toBe(g.apples[0]!.psi.lattice.siteAt(1, 1));
+  });
 });

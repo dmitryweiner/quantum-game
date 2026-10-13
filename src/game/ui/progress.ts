@@ -72,3 +72,22 @@ export function addScore(id: string, score: number, mode: ScoreMode): number {
 export function saveBest(id: string, score: number): boolean {
   return addScore(id, score, 'quantum') === 0;
 }
+
+const PLAYED = 'quantum-game:played:';
+
+/** True until an arcade has been started once (its first game warms up classically, S4). */
+export function firstPlay(id: string): boolean {
+  try {
+    return localStorage.getItem(PLAYED + id) === null;
+  } catch {
+    return false;
+  }
+}
+
+export function markPlayed(id: string): void {
+  try {
+    localStorage.setItem(PLAYED + id, '1');
+  } catch {
+    // Not remembered: the warm-up shows again next time.
+  }
+}

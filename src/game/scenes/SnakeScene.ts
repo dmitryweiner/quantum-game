@@ -14,6 +14,7 @@ import { GazeCone } from '../systems/GazeCone';
 import { ui } from '../ui';
 import { bestScore } from '../ui/progress';
 import { announce, finishArcade } from '../ui/shock';
+import { ArcadeMode } from '../ui/arcadeMode';
 import { ParadoxLog } from '../../arcade/paradox';
 import { UI_FONT } from '../constants';
 
@@ -33,6 +34,7 @@ export class SnakeScene extends Phaser.Scene {
   private swipeFrom: { x: number; y: number } | null = null;
   private holdTimer: Phaser.Time.TimerEvent | null = null;
   private log = new ParadoxLog();
+  private mode!: ArcadeMode;
 
   constructor() {
     super('Snake');
@@ -41,6 +43,7 @@ export class SnakeScene extends Phaser.Scene {
   create(): void {
     this.snake = new SnakeGame(SNAKE_ARENA, mulberry32((Math.random() * 2 ** 32) >>> 0));
     this.log = new ParadoxLog();
+    this.mode = new ArcadeMode('snake', (on) => (this.snake.classical = on));
     this.running = false;
     this.world = this.add.layer();
     drawTiles(this, this.world, this.snake.map);
@@ -89,7 +92,10 @@ export class SnakeScene extends Phaser.Scene {
       { title: s.title, goal: s.goal, rules: s.rules, effects: EFFECTS },
       isTouchDevice(),
       { touch: s.controlsTouch, desktop: s.controlsDesktop },
-      () => (this.running = true),
+      (mode) => {
+        this.mode.start(mode);
+        this.running = true;
+      },
       () => this.openMenu(),
     );
   }
@@ -172,7 +178,9 @@ export class SnakeScene extends Phaser.Scene {
 
   override update(time: number, deltaMs: number): void {
     if (this.running && !ui().isScreenOpen) {
-      const events = this.snake.update(Math.min(deltaMs, 100) / 1000);
+      const dt = Math.min(deltaMs, 100) / 1000;
+      this.mode.update(dt);
+      const events = this.snake.update(dt);
       for (const e of events) {
         if (e.type === 'collapsed') {
           this.apples[e.apple]?.flash(e.site);
@@ -210,7 +218,7 @@ export class SnakeScene extends Phaser.Scene {
       finishArcade(
         'snake',
         score,
-        'quantum',
+        this.mode.mode,
         this.log,
         () => this.scene.restart(),
         () => this.openMenu(),

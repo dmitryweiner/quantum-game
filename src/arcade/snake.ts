@@ -72,6 +72,8 @@ export class SnakeGame {
   score = 0;
   alive = true;
   cone: Cone | null = null;
+  /** Classical physics (S4): apples stay where they are, seen or not. */
+  classical = false;
   /** The head looks ahead unless the player closes its eyes (🙈). */
   eyesOpen = true;
   /** Where each apple would be classically: where it was last seen (S1). */
@@ -160,7 +162,7 @@ export class SnakeGame {
 
     // Apples spread while unwatched; the head's view measures them every frame.
     this.apples.forEach((apple, index) => {
-      apple.psi.evolve(dt);
+      if (!this.classical) apple.psi.evolve(dt);
       const { lattice } = apple.psi;
       for (let i = 0; i < lattice.size; i++) {
         apple.seen[i] =

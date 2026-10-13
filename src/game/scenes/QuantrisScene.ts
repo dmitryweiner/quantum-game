@@ -13,6 +13,7 @@ import { fitCamera } from '../render/tiles';
 import { ui } from '../ui';
 import { bestScore } from '../ui/progress';
 import { announce, finishArcade } from '../ui/shock';
+import { ArcadeMode } from '../ui/arcadeMode';
 import { ParadoxLog, SHOCK } from '../../arcade/paradox';
 
 const EFFECTS: EffectId[] = ['superposition', 'collapse', 'born-rule'];
@@ -53,6 +54,7 @@ export class QuantrisScene extends Phaser.Scene {
   /** Stoppers of the keys held down right now (auto-repeat). */
   private held = new Map<string, () => void>();
   private log = new ParadoxLog();
+  private mode!: ArcadeMode;
 
   constructor() {
     super('Quantris');
@@ -61,6 +63,7 @@ export class QuantrisScene extends Phaser.Scene {
   create(): void {
     this.q = new QuantrisGame(mulberry32((Math.random() * 2 ** 32) >>> 0));
     this.log = new ParadoxLog();
+    this.mode = new ArcadeMode('quantris', (on) => this.q.setClassical(on));
     this.running = false;
     this.gfx = this.add.graphics();
     this.labels = [0, 1].map(() =>
@@ -155,7 +158,10 @@ export class QuantrisScene extends Phaser.Scene {
       { title: t.title, goal: t.goal, rules: t.rules, effects: EFFECTS },
       isTouchDevice(),
       { touch: t.controlsTouch, desktop: t.controlsDesktop },
-      () => (this.running = true),
+      (mode) => {
+        this.mode.start(mode);
+        this.running = true;
+      },
       () => this.openMenu(),
     );
   }
@@ -290,7 +296,9 @@ export class QuantrisScene extends Phaser.Scene {
 
   override update(_time: number, deltaMs: number): void {
     if (this.running && !ui().isScreenOpen) {
-      const events = this.q.update(Math.min(deltaMs, 100) / 1000);
+      const dt = Math.min(deltaMs, 100) / 1000;
+      this.mode.update(dt);
+      const events = this.q.update(dt);
       if (events.length) this.onEvents(events);
     }
     this.render();
@@ -304,7 +312,7 @@ export class QuantrisScene extends Phaser.Scene {
       finishArcade(
         'quantris',
         score,
-        'quantum',
+        this.mode.mode,
         this.log,
         () => this.scene.restart(),
         () => this.openMenu(),

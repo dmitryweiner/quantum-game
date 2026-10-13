@@ -67,6 +67,9 @@ const EN = {
     paradoxTitle: '🤯 Impossible things you saw',
     noParadox: 'Nothing impossible this time — try closing your eyes 🙈',
     tableTitle: 'Best games',
+    playQuantum: '▶ ⚛ Quantum',
+    playClassical: '⚪ Classical',
+    quantumOn: '⚛ QUANTUM ON — watch the world break!',
     points: (n: number) => `+${n}`,
     quantris: {
       title: 'Quantris',
@@ -347,6 +350,9 @@ const RU: Strings = {
     paradoxTitle: '🤯 Невозможное, что ты видел',
     noParadox: 'В этот раз ничего невозможного — попробуй закрыть глаза 🙈',
     tableTitle: 'Лучшие игры',
+    playQuantum: '▶ ⚛ Квантовая',
+    playClassical: '⚪ Классическая',
+    quantumOn: '⚛ КВАНТЫ ВКЛЮЧЕНЫ — смотри, как ломается мир!',
     points: (n: number) => `+${n}`,
     quantris: {
       title: 'Квантрис',

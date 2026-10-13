@@ -121,6 +121,8 @@ export class QuantrisGame {
   lines = 0;
   level = 1;
   over = false;
+  /** Classical physics (S4): every piece is definite. */
+  private classical = false;
   /** The (definite) piece rests on the stack and locks after QUANTRIS.lockDelay. */
   grounded = false;
   private fallAcc = 0;
@@ -132,6 +134,16 @@ export class QuantrisGame {
     this.spawn([]);
   }
 
+  /** Switch classical physics on or off; on, pieces already in superposition settle in their likelier place. */
+  setClassical(on: boolean): void {
+    this.classical = on;
+    if (!on) return;
+    for (const piece of [this.piece, this.next]) {
+      const [a, b] = piece.branches;
+      if (a && b) piece.branches = [{ x: (a.p >= b.p ? a : b).x, p: 1 }];
+    }
+  }
+
   get fallTime(): number {
     return Math.max(QUANTRIS.minFall, QUANTRIS.startFall * 0.85 ** (this.level - 1));
   }
@@ -140,7 +152,7 @@ export class QuantrisGame {
     const kind = Math.floor(this.rng.next() * SHAPES.length);
     const width = BOX[kind]!;
     const x0 = Math.floor((QUANTRIS.cols - width) / 2);
-    if (this.rng.next() >= QUANTRIS.quantumChance)
+    if (this.classical || this.rng.next() >= QUANTRIS.quantumChance)
       return { kind, rot: 0, y: 0, branches: [{ x: x0, p: 1 }] };
     // Two places a few columns apart, both inside the board.
     const shift = 2 + Math.floor(this.rng.next() * 3);

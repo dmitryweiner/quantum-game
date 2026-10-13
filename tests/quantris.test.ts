@@ -148,4 +148,13 @@ describe('Quantris', () => {
     g.rotate(1);
     expect(((g.piece.rot % 4) + 4) % 4).toBe(1);
   });
+
+  it('classical mode: every piece is definite', () => {
+    const g = new QuantrisGame(mulberry32(10));
+    g.setClassical(true);
+    for (let i = 0; i < 30 && !g.over; i++) {
+      expect(g.piece.branches).toHaveLength(1);
+      g.hardDrop();
+    }
+  });
 });
