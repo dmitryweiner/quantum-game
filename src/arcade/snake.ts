@@ -26,19 +26,35 @@ export const DIR_ANGLE: Readonly<Record<Dir, number>> = {
   up: -Math.PI / 2,
 };
 
-/** Tunable numbers of the quantum snake (PLAN.md §9.1). */
+/** Fruits: how fast an unwatched one spreads (hopping rate γ, 1/s) and its bonus points. */
+export const FRUITS = {
+  /** Light: spreads fast, worth more. */
+  cherry: { emoji: '🍒', hop: 1.2, bonus: 1 },
+  apple: { emoji: '🍎', hop: 0.6, bonus: 0 },
+  /** The apple's entangled twin. */
+  green: { emoji: '🍏', hop: 0.6, bonus: 0 },
+  /** Heavy: hardly spreads, cheap. */
+  pear: { emoji: '🍐', hop: 0.25, bonus: 0 },
+} as const;
+export type FruitKind = keyof typeof FRUITS;
+
+/** Tunable numbers of the quantum snake (PLAN.md §9.1, PLAN-IMPROVEMENTS.md §2). */
 export const SNAKE = {
   /** Seconds per step at the start (calm), and the fastest it gets. */
   startTick: 0.45,
   minTick: 0.15,
-  /** Each apple — one more segment — makes a step this much shorter (multiplier). */
+  /** Each fruit — one more segment — makes a step this much shorter (multiplier). */
   speedUp: 0.95,
-  /** How fast an unwatched apple spreads (hopping rate γ, 1/s). */
-  appleHop: 0.6,
   /** The head's view: range in cells and half-angle. */
   viewRange: 4,
   viewHalfAngle: (30 * Math.PI) / 180,
   startLength: 3,
+  /** Chances for the next fruits: an entangled 🍎🍏 pair, a cherry, a pear (else an apple). */
+  pairChance: 0.3,
+  cherryChance: 0.2,
+  pearChance: 0.2,
+  /** How often a hot cell notices a fruit on it (1/s): it keeps the fruit classical. */
+  hotRate: 3,
 } as const;
 
 export interface Cell {
@@ -46,46 +62,55 @@ export interface Cell {
   row: number;
 }
 
+export interface Fruit extends QuantumBody {
+  id: number;
+  kind: FruitKind;
+  /** Where it would be classically: where it was last seen (S1). */
+  classical: ClassicalTwin;
+  /** Id of its entangled twin, while the pair has not been measured. */
+  partner: number | null;
+  /** Seconds it has been held definite by the head's look (Zeno). */
+  watched: number;
+}
+
 export type SnakeEvent =
-  | { type: 'collapsed'; apple: number; site: number }
+  | { type: 'collapsed'; fruit: number; site: number }
   | { type: 'missed'; col: number; row: number }
-  /** `points`: 1…3, more for an apple caught while still spread out. */
-  | { type: 'ate'; col: number; row: number; points: number }
+  /** `points`: more for a fruit caught while still spread out (and for a cherry). */
+  | { type: 'ate'; fruit: number; col: number; row: number; points: number }
   /** Something classically impossible, at (col, row); `from`: the classical place. */
   | { type: 'paradox'; paradox: Paradox; col: number; row: number; from: Cell }
   | { type: 'died' };
 
 /**
- * Quantum snake, engine-free (PLAN.md §9.1). The apple is a quantum object
- * like the sandbox cat: it spreads while unwatched, the head's view cone
- * collapses it, a steady look freezes it (Zeno), and the head entering a cell
- * measures that cell — the apple is there with the chance its ghost shows.
+ * Quantum snake, engine-free (PLAN.md §9.1). Fruits are quantum objects like
+ * the sandbox cat: they spread while unwatched, the head's view cone
+ * collapses them, a steady look freezes them (Zeno), and the head entering a
+ * cell measures that cell. A 🍎🍏 pair is entangled: finding one settles the
+ * other at the mirror cell. Hot cells 🔥 keep a fruit classical.
  */
 export class SnakeGame {
   readonly map: ParsedMap;
   body: Cell[];
   dir: Dir = 'up';
   private queued: Dir[] = [];
-  readonly apples: QuantumBody[] = [];
+  fruits: Fruit[] = [];
   tick: number = SNAKE.startTick;
   private acc = 0;
   score = 0;
   alive = true;
   cone: Cone | null = null;
-  /** Classical physics (S4): apples stay where they are, seen or not. */
+  /** Classical physics (S4): fruits stay where they are, seen or not. */
   classical = false;
   /** The head looks ahead unless the player closes its eyes (🙈). */
   eyesOpen = true;
-  /** Where each apple would be classically: where it was last seen (S1). */
-  readonly twins: ClassicalTwin[] = [];
-  /** Seconds each apple has been held definite by the head's look (Zeno). */
-  private watched: number[] = [];
+  private nextId = 0;
   private readonly open: (c: number, r: number) => boolean;
+  private readonly hot: Set<string>;
 
   constructor(
     arena: readonly string[],
     private readonly rng: Rng,
-    apples = 1,
   ) {
     this.map = parseMap(arena);
     const s = this.map.playerStart;
@@ -94,12 +119,19 @@ export class SnakeGame {
       row: s.row + i,
     }));
     this.open = (c, r) => isWaveOpen(this.map, c, r);
-    for (let i = 0; i < apples; i++) this.spawnApple();
+    this.hot = new Set(
+      this.map.objects.filter((o) => o.role === 'hot').map((o) => `${o.col},${o.row}`),
+    );
+    this.spawnFruits();
     this.updateCone();
   }
 
   get head(): Cell {
     return this.body[0]!;
+  }
+
+  isHot(c: number, r: number): boolean {
+    return this.hot.has(`${c},${r}`);
   }
 
   /** Queue a turn (two can be queued so quick double taps work); no U-turns. */
@@ -113,27 +145,66 @@ export class SnakeGame {
     return this.body.some((b) => b.col === c && b.row === r);
   }
 
-  /** A new apple appears, definite, on a free floor cell away from the head. */
-  private spawnApple(index = this.apples.length): void {
-    const free: Cell[] = [];
-    for (let r = 0; r < this.map.rows; r++) {
-      for (let c = 0; c < this.map.cols; c++) {
-        const far = Math.abs(c - this.head?.col) + Math.abs(r - this.head?.row) > 4;
-        if (!isSolid(this.map, c, r) && !this.occupied(c, r) && (far || !this.body.length))
-          free.push({ col: c, row: r });
+  private free(c: number, r: number): boolean {
+    const far = Math.abs(c - this.head.col) + Math.abs(r - this.head.row) > 4;
+    return !isSolid(this.map, c, r) && !this.occupied(c, r) && far;
+  }
+
+  /** The mirror cell (left–right) of a cell. */
+  mirror(c: number, r: number): Cell {
+    return { col: this.map.cols - 1 - c, row: r };
+  }
+
+  /** New fruits once the field is empty: an entangled pair, or one fruit. */
+  private spawnFruits(): void {
+    const cells: Cell[] = [];
+    for (let r = 0; r < this.map.rows; r++)
+      for (let c = 0; c < this.map.cols; c++) if (this.free(c, r)) cells.push({ col: c, row: r });
+    const pick = (list: Cell[]) =>
+      list[Math.floor(this.rng.next() * list.length)] ?? this.map.playerStart;
+    const roll = this.rng.next();
+    if (roll < SNAKE.pairChance) {
+      // Left half, with a free mirror cell on the right.
+      const left = cells.filter((c) => {
+        const m = this.mirror(c.col, c.row);
+        return c.col < m.col && this.free(m.col, m.row);
+      });
+      if (left.length) {
+        const at = pick(left);
+        const a = this.addFruit('apple', at);
+        const b = this.addFruit('green', this.mirror(at.col, at.row));
+        a.partner = b.id;
+        b.partner = a.id;
+        return;
       }
     }
-    const at = free[Math.floor(this.rng.next() * free.length)] ?? this.map.playerStart;
+    const kind: FruitKind =
+      roll < SNAKE.pairChance + SNAKE.cherryChance
+        ? 'cherry'
+        : roll < SNAKE.pairChance + SNAKE.cherryChance + SNAKE.pearChance
+          ? 'pear'
+          : 'apple';
+    this.addFruit(kind, pick(cells));
+  }
+
+  private addFruit(kind: FruitKind, at: Cell): Fruit {
     const lattice = floodLattice(at, this.open);
-    const psi = new Superposition(lattice, lattice.siteAt(at.col, at.row), SNAKE.appleHop);
-    const body: QuantumBody = {
-      def: { char: 'a', role: 'quantum', emoji: '🍎', col: at.col, row: at.row },
-      psi,
+    const fruit: Fruit = {
+      id: this.nextId++,
+      kind,
+      def: { char: 'a', role: 'quantum', emoji: FRUITS[kind].emoji, col: at.col, row: at.row },
+      psi: new Superposition(lattice, lattice.siteAt(at.col, at.row), FRUITS[kind].hop),
       seen: new Array<boolean>(lattice.size).fill(false),
+      classical: new ClassicalTwin(at.col, at.row),
+      partner: null,
+      watched: 0,
     };
-    this.apples[index] = body;
-    this.twins[index] = new ClassicalTwin(at.col, at.row);
-    this.watched[index] = 0;
+    this.fruits.push(fruit);
+    return fruit;
+  }
+
+  byId(id: number): Fruit | undefined {
+    return this.fruits.find((f) => f.id === id);
   }
 
   /** Close or open the eyes: closed, the head measures only the cell it enters. */
@@ -156,37 +227,126 @@ export class SnakeGame {
     };
   }
 
+  /** The leader of an entangled pair (the 🍎) and its twin, or the fruit alone. */
+  private pairOf(f: Fruit): [Fruit, Fruit | null] {
+    const t = f.partner !== null ? this.byId(f.partner) : undefined;
+    if (!t) return [f, null];
+    return f.kind === 'apple' ? [f, t] : [t, f];
+  }
+
+  /**
+   * Game rule, not physics: while a pair is unmeasured, the 🍏's cloud is the
+   * mirror image of the 🍎's (they hop together). What is physics: the
+   * correlation, and that finding either one settles both at once.
+   */
+  private syncTwin(a: Fruit, b: Fruit): void {
+    b.psi.re.fill(0);
+    b.psi.im.fill(0);
+    const la = a.psi.lattice;
+    for (let i = 0; i < la.size; i++) {
+      const m = this.mirror(la.col[i]!, la.row[i]!);
+      const j = b.psi.lattice.siteAt(m.col, m.row);
+      if (j < 0) continue;
+      b.psi.re[j] = a.psi.re[i]!;
+      b.psi.im[j] = a.psi.im[i]!;
+    }
+    b.psi.evolve(0);
+  }
+
+  /**
+   * Asks a fruit (or a pair) "are you in these cells?". The pair is asked as
+   * one: a cell of the 🍏 counts as its mirror cell of the 🍎. Returns where
+   * the asked fruit was found, or null.
+   */
+  private ask(
+    f: Fruit,
+    seen: (c: number, r: number) => boolean,
+    events: SnakeEvent[],
+    before = f.psi.definiteSite(),
+  ): { fruit: Fruit; site: number } | null {
+    const [a, b] = this.pairOf(f);
+    const la = a.psi.lattice;
+    const mask = new Array<boolean>(la.size).fill(false);
+    for (let i = 0; i < la.size; i++) {
+      const c = la.col[i]!;
+      const r = la.row[i]!;
+      const m = this.mirror(c, r);
+      mask[i] = f === b ? seen(m.col, m.row) : seen(c, r);
+    }
+    const out = a.psi.measure(mask, this.rng);
+    if (out.kind !== 'found') {
+      if (b) this.syncTwin(a, b);
+      return null;
+    }
+    const c = la.col[out.site]!;
+    const r = la.row[out.site]!;
+    if (before < 0) {
+      events.push({ type: 'collapsed', fruit: a.id, site: out.site });
+      this.nameFar(a, c, r, events);
+    }
+    a.classical.seen(c, r);
+    if (!b) return { fruit: a, site: out.site };
+    // Both settle at once, however far apart.
+    const m = this.mirror(c, r);
+    const j = b.psi.lattice.siteAt(m.col, m.row);
+    a.partner = b.partner = null;
+    if (j >= 0) {
+      b.psi.collapseTo(j);
+      b.classical.seen(m.col, m.row);
+      events.push({ type: 'collapsed', fruit: b.id, site: j });
+      if (before < 0)
+        events.push({
+          type: 'paradox',
+          paradox: { kind: 'spooky', value: Math.abs(m.col - c) },
+          col: m.col,
+          row: m.row,
+          from: { col: c, row: r },
+        });
+    }
+    if (f === b) return j >= 0 ? { fruit: b, site: j } : null;
+    return { fruit: a, site: out.site };
+  }
+
+  private nameFar(f: Fruit, col: number, row: number, events: SnakeEvent[]): void {
+    const far = f.classical.farFrom(col, row);
+    if (far)
+      events.push({
+        type: 'paradox',
+        paradox: far,
+        col,
+        row,
+        from: { col: f.classical.x, row: f.classical.y },
+      });
+  }
+
   update(dt: number): SnakeEvent[] {
     const events: SnakeEvent[] = [];
     if (!this.alive) return events;
 
-    // Apples spread while unwatched; the head's view measures them every frame.
-    this.apples.forEach((apple, index) => {
+    // Fruits spread while unwatched; the head's view and hot cells measure them every frame.
+    const sight = (c: number, r: number) =>
+      this.cone !== null && cellSeen(this.cone, c, r, (cc, rr) => blocksSight(this.map, cc, rr));
+    for (const f of [...this.fruits]) {
+      const [a, b] = this.pairOf(f);
+      if (a !== f || !this.fruits.includes(f)) continue;
       // Definite before this frame's spreading: then a find in the same cell is a Zeno hold.
-      const before = apple.psi.definiteSite();
-      if (!this.classical) apple.psi.evolve(dt);
-      const { lattice } = apple.psi;
-      for (let i = 0; i < lattice.size; i++) {
-        apple.seen[i] =
-          this.cone !== null &&
-          cellSeen(this.cone, lattice.col[i]!, lattice.row[i]!, (c, r) =>
-            blocksSight(this.map, c, r),
-          );
+      const before = a.psi.definiteSite();
+      if (!this.classical) {
+        a.psi.evolve(dt);
+        if (b) this.syncTwin(a, b);
       }
-      const out = apple.psi.measure(apple.seen, this.rng);
-      if (out.kind === 'found' && before < 0) {
-        events.push({ type: 'collapsed', apple: index, site: out.site });
-        this.foundAt(index, out.site, events);
+      for (const x of b ? [a, b] : [a]) {
+        const { lattice } = x.psi;
+        for (let i = 0; i < lattice.size; i++) x.seen[i] = sight(lattice.col[i]!, lattice.row[i]!);
       }
-      // Seen and still where it was: the look holds it (Zeno). Named once per apple.
-      const twin = this.twins[index]!;
-      if (out.kind === 'found' && before === out.site) {
-        this.watched[index]! += dt;
-        if (
-          this.watched[index]! >= SHOCK.zenoSeconds &&
-          this.watched[index]! - dt < SHOCK.zenoSeconds
-        ) {
-          const at = { col: twin.x, row: twin.y };
+      const seenA = (c: number, r: number) => sight(c, r);
+      let res = this.ask(a, seenA, events, before);
+      if (!res && b) res = this.ask(b, seenA, events, before);
+      // Seen and still where it was: the look holds it (Zeno). Named once per fruit.
+      if (res && res.fruit === a && before === res.site) {
+        a.watched += dt;
+        if (a.watched >= SHOCK.zenoSeconds && a.watched - dt < SHOCK.zenoSeconds) {
+          const at = { col: a.classical.x, row: a.classical.y };
           events.push({
             type: 'paradox',
             paradox: { kind: 'zeno', value: SHOCK.zenoSeconds },
@@ -194,8 +354,10 @@ export class SnakeGame {
             from: at,
           });
         }
-      } else this.watched[index] = 0;
-    });
+      } else a.watched = 0;
+      // Hot cells: the environment notices a fruit on them now and then (decoherence).
+      if (!this.classical) this.decohere(a, dt, events);
+    }
 
     this.acc += dt;
     while (this.acc >= this.tick && this.alive) {
@@ -205,16 +367,22 @@ export class SnakeGame {
     return events;
   }
 
-  /** Apple `index` turned out to be at `site`: name it if that is far from the classical place. */
-  private foundAt(index: number, site: number, events: SnakeEvent[]): void {
-    const { lattice } = this.apples[index]!.psi;
-    const col = lattice.col[site]!;
-    const row = lattice.row[site]!;
-    const twin = this.twins[index]!;
-    const far = twin.farFrom(col, row);
-    if (far)
-      events.push({ type: 'paradox', paradox: far, col, row, from: { col: twin.x, row: twin.y } });
-    twin.seen(col, row);
+  private decohere(f: Fruit, dt: number, events: SnakeEvent[]): void {
+    if (!this.hot.size) return;
+    const { lattice } = f.psi;
+    const w = new Array<number>(lattice.size);
+    let any = false;
+    for (let i = 0; i < lattice.size; i++) {
+      w[i] = this.isHot(lattice.col[i]!, lattice.row[i]!) ? 1 : 0;
+      if (w[i] && f.psi.probability(i) > 1e-9) any = true;
+    }
+    if (!any || f.partner !== null) return;
+    const before = f.psi.definiteSite();
+    const out = f.psi.measureSoft(w, Math.min(1, SNAKE.hotRate * dt), 0, this.rng);
+    if (out.kind === 'found') {
+      if (before < 0) events.push({ type: 'collapsed', fruit: f.id, site: out.site });
+      f.classical.seen(lattice.col[out.site]!, lattice.row[out.site]!);
+    }
   }
 
   private step(events: SnakeEvent[]): void {
@@ -233,27 +401,32 @@ export class SnakeGame {
     this.body.unshift(next);
     let grew = false;
     // The head entering a cell measures it.
-    this.apples.forEach((apple, index) => {
-      const site = apple.psi.lattice.siteAt(next.col, next.row);
-      if (site < 0) return;
-      const mask = new Array<boolean>(apple.psi.lattice.size).fill(false);
-      mask[site] = true;
-      const chance = apple.psi.probability(site);
-      const spread = apple.psi.stats().spread;
-      const twin = this.twins[index]!;
-      const from = { col: twin.x, row: twin.y };
-      const out = apple.psi.measure(mask, this.rng);
-      if (out.kind === 'found') {
+    for (const f of [...this.fruits]) {
+      if (!this.fruits.includes(f)) continue;
+      const site = f.psi.lattice.siteAt(next.col, next.row);
+      if (site < 0) continue;
+      const chance = f.psi.probability(site);
+      if (chance < 1e-12) continue;
+      const spread = f.psi.stats().spread;
+      const from = { col: f.classical.x, row: f.classical.y };
+      const here = (c: number, r: number) => c === next.col && r === next.row;
+      const found = this.ask(f, here, events);
+      if (found && found.fruit === f) {
         grew = true;
-        const points = spreadMultiplier(spread);
+        const points = spreadMultiplier(spread) + FRUITS[f.kind].bonus;
         this.score += points;
         this.tick = Math.max(SNAKE.minTick, this.tick * SNAKE.speedUp);
         if (chance <= SHOCK.rareChance)
-          events.push({ type: 'paradox', paradox: { kind: 'rare', value: chance }, ...next, from });
-        else this.foundAt(index, site, events);
-        events.push({ type: 'ate', col: next.col, row: next.row, points });
-        this.spawnApple(index);
-      } else if (out.kind === 'absent') {
+          events.push({
+            type: 'paradox',
+            paradox: { kind: 'rare', value: chance },
+            ...next,
+            from,
+          });
+        events.push({ type: 'ate', fruit: f.id, col: next.col, row: next.row, points });
+        this.fruits = this.fruits.filter((x) => x !== f);
+        for (const x of this.fruits) if (x.partner === f.id) x.partner = null;
+      } else if (!found) {
         events.push({ type: 'missed', col: next.col, row: next.row });
         if (chance >= SHOCK.negativeChance)
           events.push({
@@ -263,8 +436,35 @@ export class SnakeGame {
             from,
           });
       }
-    });
+    }
+    if (!this.fruits.length) this.spawnFruits();
     if (!grew) this.body.pop();
     this.updateCone();
+  }
+
+  /**
+   * Cells where a spread fruit cannot be right now although it may well be
+   * on both sides: nodes of its interference pattern.
+   */
+  nodes(f: Fruit): Cell[] {
+    const { psi } = f;
+    const { lattice } = psi;
+    if (psi.definiteSite() >= 0) return [];
+    let max = 0;
+    for (let i = 0; i < lattice.size; i++) max = Math.max(max, psi.probability(i));
+    const p = (c: number, r: number) => {
+      const i = lattice.siteAt(c, r);
+      return i < 0 ? -1 : psi.probability(i) / max;
+    };
+    const out: Cell[] = [];
+    for (let i = 0; i < lattice.size; i++) {
+      const c = lattice.col[i]!;
+      const r = lattice.row[i]!;
+      if (p(c, r) > 0.02 || isSolid(this.map, c, r)) continue;
+      const across =
+        (p(c - 1, r) > 0.2 && p(c + 1, r) > 0.2) || (p(c, r - 1) > 0.2 && p(c, r + 1) > 0.2);
+      if (across) out.push({ col: c, row: r });
+    }
+    return out;
   }
 }

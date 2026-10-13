@@ -10,6 +10,7 @@ import { px } from '../display';
 import { QuantumObject } from '../entities/QuantumObject';
 import { openMainMenu, setHash } from '../menu';
 import { drawTiles, fitCamera } from '../render/tiles';
+import { emojiTexture } from '../emoji';
 import { GazeCone } from '../systems/GazeCone';
 import { ui } from '../ui';
 import { bestScore } from '../ui/progress';
@@ -18,7 +19,16 @@ import { ArcadeMode } from '../ui/arcadeMode';
 import { ParadoxLog } from '../../arcade/paradox';
 import { UI_FONT } from '../constants';
 
-const EFFECTS: EffectId[] = ['superposition', 'collapse', 'zeno', 'negative-result', 'tunnelling'];
+const EFFECTS: EffectId[] = [
+  'superposition',
+  'collapse',
+  'zeno',
+  'negative-result',
+  'entanglement',
+  'decoherence',
+  'interference',
+  'tunnelling',
+];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 /** A finger held still this long closes the snake's eyes (ms). */
 const HOLD_MS = 250;
@@ -28,7 +38,10 @@ export class SnakeScene extends Phaser.Scene {
   private snake!: SnakeGame;
   private world!: Phaser.GameObjects.Layer;
   private cone!: GazeCone;
-  private apples: QuantumObject[] = [];
+  /** One ghost renderer per fruit, by id; rebuilt when a fruit is replaced. */
+  private fruits = new Map<number, QuantumObject>();
+  /** Thread between entangled 🍎🍏, nodes ✖, the 🔥 patch. */
+  private fx!: Phaser.GameObjects.Graphics;
   private snakeGfx!: Phaser.GameObjects.Graphics;
   private running = false;
   private swipeFrom: { x: number; y: number } | null = null;
@@ -42,13 +55,26 @@ export class SnakeScene extends Phaser.Scene {
 
   create(): void {
     this.snake = new SnakeGame(SNAKE_ARENA, mulberry32((Math.random() * 2 ** 32) >>> 0));
+    this.fruits = new Map();
     this.log = new ParadoxLog();
     this.mode = new ArcadeMode('snake', (on) => (this.snake.classical = on));
     this.running = false;
     this.world = this.add.layer();
     drawTiles(this, this.world, this.snake.map);
     this.cone = new GazeCone(this, this.world);
-    this.apples = this.snake.apples.map((a) => new QuantumObject(this, this.world, a));
+    this.fruits = new Map();
+    // Hot cells 🔥: the environment keeps a fruit on them classical.
+    for (const o of this.snake.map.objects)
+      if (o.role === 'hot')
+        this.world.add(
+          this.add
+            .image((o.col + 0.5) * CELL, (o.row + 0.5) * CELL, emojiTexture(this, '🔥'))
+            .setDisplaySize(CELL * 0.7, CELL * 0.7)
+            .setAlpha(0.55),
+        );
+    this.fx = this.add.graphics();
+    this.world.add(this.fx);
+    this.syncFruits();
     this.snakeGfx = this.add.graphics();
     this.world.add(this.snakeGfx);
 
@@ -183,7 +209,8 @@ export class SnakeScene extends Phaser.Scene {
       const events = this.snake.update(dt);
       for (const e of events) {
         if (e.type === 'collapsed') {
-          this.apples[e.apple]?.flash(e.site);
+          this.syncFruits();
+          this.fruits.get(e.fruit)?.flash(e.site);
           play('collapse');
         } else if (e.type === 'ate') {
           this.ring(e.col, e.row, COLORS.good);
@@ -195,17 +222,11 @@ export class SnakeScene extends Phaser.Scene {
           announce(this.log, e.paradox);
           this.updateHud();
         } else if (e.type === 'missed') {
-          this.ring(e.col, e.row, COLORS.bad);
-          play('tick');
+          this.missed(e.col, e.row);
+          play('pop');
         } else if (e.type === 'died') this.gameOver();
       }
-      // A new apple replaces an eaten one: rebuild its ghosts.
-      this.snake.apples.forEach((a, i) => {
-        if (this.apples[i] && (this.apples[i] as unknown as { body: unknown }).body !== a) {
-          this.apples[i]!.destroy();
-          this.apples[i] = new QuantumObject(this, this.world, a);
-        }
-      });
+      this.syncFruits();
     }
     this.render(time);
   }
@@ -224,6 +245,85 @@ export class SnakeScene extends Phaser.Scene {
         () => this.openMenu(),
       ),
     );
+  }
+
+  private syncFruits(): void {
+    const alive = new Set(this.snake.fruits.map((f) => f.id));
+    for (const [id, v] of this.fruits)
+      if (!alive.has(id)) {
+        v.destroy();
+        this.fruits.delete(id);
+      }
+    for (const f of this.snake.fruits)
+      if (!this.fruits.has(f.id)) this.fruits.set(f.id, new QuantumObject(this, this.world, f));
+  }
+
+  /** The 🔗 thread between an unmeasured 🍎🍏 pair, and ✖ on the nodes of each cloud. */
+  private drawQuantumMarks(time: number): void {
+    const g = this.fx;
+    g.clear();
+    for (const f of this.snake.fruits) {
+      const t = f.partner !== null ? this.snake.byId(f.partner) : undefined;
+      if (t && f.kind === 'apple') {
+        const a = f.psi.stats();
+        const b = t.psi.stats();
+        const ax = (a.x + 0.5) * CELL;
+        const ay = (a.y + 0.5) * CELL;
+        const dx = (b.x - a.x) * CELL;
+        const dy = (b.y - a.y) * CELL;
+        const len = Math.hypot(dx, dy);
+        const off = (time * 0.03) % 20;
+        g.lineStyle(4, COLORS.thread, 0.7);
+        for (let d = off - 20; d < len; d += 20) {
+          const s0 = Math.max(0, d) / len;
+          const s1 = Math.min(len, d + 10) / len;
+          if (s1 > s0) g.lineBetween(ax + dx * s0, ay + dy * s0, ax + dx * s1, ay + dy * s1);
+        }
+      }
+      // Nodes: the fruit may be left and right of the cell, but not in it (interference).
+      g.lineStyle(3, 0x7fd4ff, 0.75);
+      for (const n of this.snake.nodes(f)) {
+        const x = (n.col + 0.5) * CELL;
+        const y = (n.row + 0.5) * CELL;
+        g.lineBetween(x - 9, y - 9, x + 9, y + 9);
+        g.lineBetween(x - 9, y + 9, x + 9, y - 9);
+      }
+    }
+  }
+
+  /** A miss: "not here" — the cloud is pushed out of the cell (negative result). */
+  private missed(col: number, row: number): void {
+    const x = (col + 0.5) * CELL;
+    const y = (row + 0.5) * CELL;
+    const t = this.add
+      .text(x, y, '∅', {
+        fontFamily: UI_FONT,
+        fontSize: '40px',
+        fontStyle: 'bold',
+        color: '#ff6b6b',
+        stroke: '#0b0e1a',
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5)
+      .setResolution(3);
+    this.world.add(t);
+    // A ring pushing outwards: the probability that was here moves away.
+    const r = this.add.circle(x, y, CELL * 0.4).setStrokeStyle(5, COLORS.ghostHeat, 0.9);
+    this.world.add(r);
+    this.tweens.add({
+      targets: r,
+      scale: 3.5,
+      alpha: 0,
+      duration: 700,
+      onComplete: () => r.destroy(),
+    });
+    this.tweens.add({
+      targets: t,
+      scale: 1.6,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => t.destroy(),
+    });
   }
 
   /** "+3" rising from where an apple was eaten; bigger for a wider apple. */
@@ -283,7 +383,8 @@ export class SnakeScene extends Phaser.Scene {
       (c, r) =>
         this.snake.map.tiles[r]?.[c] === 'wall' || this.snake.map.tiles[r]?.[c] === 'barrier',
     );
-    this.apples.forEach((a, i) => a.render(time, this.snake.twins[i]));
+    for (const f of this.snake.fruits) this.fruits.get(f.id)?.render(time, f.classical);
+    this.drawQuantumMarks(time);
     const g = this.snakeGfx;
     g.clear();
     const n = this.snake.body.length;

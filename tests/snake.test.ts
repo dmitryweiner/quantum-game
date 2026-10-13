@@ -1,13 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { SNAKE_ARENA } from '../src/arcade/arenas';
-import { SnakeGame, type Dir } from '../src/arcade/snake';
+import { SnakeGame, type Dir, type Fruit } from '../src/arcade/snake';
 import { mulberry32 } from '../src/quantum/rng';
 
 const OPEN = ['#######', '#.....#', '#.....#', '#.....#', '#.....#', '#..@..#', '#######'];
 
+/** The game's only fruit: an ordinary apple (whatever the game spawned first is replaced). */
+function apple(g: SnakeGame) {
+  const f = g.fruits[0];
+  if (g.fruits.length === 1 && f?.kind === 'apple') return f;
+  g.fruits = [];
+  return (g as unknown as { addFruit: (k: string, at: object) => Fruit }).addFruit('apple', {
+    col: 1,
+    row: 1,
+  });
+}
+
 /** Put the apple, definite, on a given cell. */
 function placeApple(g: SnakeGame, col: number, row: number) {
-  const psi = g.apples[0]!.psi;
+  const psi = apple(g).psi;
   psi.collapseTo(psi.lattice.siteAt(col, row));
 }
 
@@ -32,19 +43,20 @@ describe('quantum snake', () => {
     const g = new SnakeGame(OPEN, mulberry32(2));
     placeApple(g, 3, 2); // straight ahead of the head at (3, 5)
     for (let i = 0; i < 30; i++) g.update(0.02);
-    expect(g.apples[0]!.psi.definiteSite()).toBeGreaterThanOrEqual(0);
+    expect(apple(g).psi.definiteSite()).toBeGreaterThanOrEqual(0);
 
     const h = new SnakeGame(OPEN, mulberry32(3));
     placeApple(h, 1, 5); // beside the head, outside its forward cone
     for (let i = 0; i < 30; i++) h.update(0.02);
-    expect(h.apples[0]!.psi.definiteSite()).toBe(-1);
+    expect(apple(h).psi.definiteSite()).toBe(-1);
   });
 
   it('eats an apple it is sure about and grows', () => {
     const g = new SnakeGame(OPEN, mulberry32(4));
     placeApple(g, 3, 4);
     const len = g.body.length;
-    g.update(g.tick + 1e-6);
+    // Watched every frame on the way, it stays put (Zeno).
+    for (let t = 0; t <= g.tick; t += 0.02) g.update(0.02);
     expect(g.score).toBe(1);
     expect(g.body.length).toBe(len + 1);
   });
@@ -55,7 +67,7 @@ describe('quantum snake', () => {
     for (let seed = 0; seed < 200; seed++) {
       const g = new SnakeGame(OPEN, mulberry32(seed));
       g.cone = null;
-      const psi = g.apples[0]!.psi;
+      const psi = apple(g).psi;
       // Half the apple in the cell ahead, half far away.
       psi.re.fill(0);
       psi.im.fill(0);
@@ -76,7 +88,7 @@ describe('quantum snake', () => {
     for (let seed = 0; seed < 20; seed++) {
       const g = new SnakeGame(SNAKE_ARENA, mulberry32(seed));
       for (let t = 0; t < 60 / 0.02 && g.alive; t++) {
-        const p = g.apples[0]!.psi;
+        const p = g.fruits[0]!.psi;
         let best = 0;
         for (let i = 0; i < p.lattice.size; i++)
           if (p.probability(i) > p.probability(best)) best = i;
@@ -115,7 +127,7 @@ describe('quantum snake', () => {
     g.setEyes(false);
     for (let i = 0; i < 30; i++) g.update(0.02);
     expect(g.cone).toBeNull();
-    expect(g.apples[0]!.psi.definiteSite()).toBe(-1);
+    expect(apple(g).psi.definiteSite()).toBe(-1);
   });
 
   it('an apple frozen by the look is worth 1, a spread one more (S8)', () => {
@@ -130,7 +142,7 @@ describe('quantum snake', () => {
       const h = new SnakeGame(OPEN, mulberry32(100 + s));
       placeApple(h, 3, 3);
       h.setEyes(false);
-      h.apples[0]!.psi.evolve(2.5);
+      apple(h).psi.evolve(2.5);
       for (const e of h.update(h.tick * 2)) if (e.type === 'ate') best = Math.max(best, e.points);
     }
     expect(best).toBeGreaterThanOrEqual(2);
@@ -141,7 +153,7 @@ describe('quantum snake', () => {
     for (let s = 0; s < 100; s++) {
       const g = new SnakeGame(SNAKE_ARENA, mulberry32(200 + s));
       // Eyes closed for a while: the apple spreads; then a look finds it.
-      g.apples[0]!.psi.evolve(4);
+      apple(g).psi.evolve(4);
       for (let i = 0; i < 5; i++) {
         for (const e of g.update(0.05))
           if (e.type === 'paradox' && e.paradox.kind === 'far') {
@@ -159,7 +171,7 @@ describe('quantum snake', () => {
     g.setEyes(false);
     placeApple(g, 1, 1);
     for (let i = 0; i < 20; i++) g.update(0.02);
-    expect(g.apples[0]!.psi.definiteSite()).toBe(g.apples[0]!.psi.lattice.siteAt(1, 1));
+    expect(apple(g).psi.definiteSite()).toBe(apple(g).psi.lattice.siteAt(1, 1));
   });
 
   it('an apple held in view long enough is named as a Zeno freeze', () => {
@@ -173,5 +185,94 @@ describe('quantum snake', () => {
         if (e.type === 'paradox' && e.paradox.kind === 'zeno') zeno = true;
     }
     expect(zeno).toBe(true);
+  });
+
+  /** A game with exactly these fruits (an entangled pair if both 'apple' and 'green'). */
+  function withFruits(seed: number, fruits: [string, number, number][], arena = SNAKE_ARENA) {
+    const g = new SnakeGame(arena, mulberry32(seed));
+    g.fruits = [];
+    const add = (g as unknown as { addFruit: (k: string, at: object) => Fruit }).addFruit.bind(g);
+    const made = fruits.map(([k, col, row]) => add(k, { col, row }));
+    if (made.length === 2) {
+      made[0]!.partner = made[1]!.id;
+      made[1]!.partner = made[0]!.id;
+    }
+    return { g, made };
+  }
+
+  it('finding one of the entangled 🍎🍏 settles the other at the mirror cell at once', () => {
+    let checked = 0;
+    for (let s = 0; s < 30; s++) {
+      const { g, made } = withFruits(400 + s, [
+        ['apple', 5, 9],
+        ['green', 7, 9],
+      ]);
+      const [a, b] = made as [Fruit, Fruit];
+      // Spread unseen first; then the head (at 6,12, looking up) sees the pair.
+      g.setEyes(false);
+      a.psi.evolve(1.5);
+      g.update(0.01);
+      g.setEyes(true);
+      let spooky = false;
+      for (let i = 0; i < 40 && a.partner !== null; i++)
+        for (const e of g.update(0.02))
+          if (e.type === 'paradox' && e.paradox.kind === 'spooky') spooky = true;
+      if (a.partner !== null || !spooky) continue;
+      const ca = a.psi.lattice.col[a.psi.definiteSite()]!;
+      const cb = b.psi.lattice.col[b.psi.definiteSite()]!;
+      const ra = a.psi.lattice.row[a.psi.definiteSite()]!;
+      const rb = b.psi.lattice.row[b.psi.definiteSite()]!;
+      expect(cb).toBe(g.map.cols - 1 - ca);
+      expect(rb).toBe(ra);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(5);
+  });
+
+  it('a cherry spreads faster than a pear', () => {
+    const spread = (kind: string) => {
+      const { g, made } = withFruits(5, [[kind, 6, 5]]);
+      g.setEyes(false);
+      for (let i = 0; i < 100; i++) g.update(0.02);
+      return made[0]!.psi.stats().spread;
+    };
+    expect(spread('cherry')).toBeGreaterThan(1.5 * spread('pear'));
+  });
+
+  it('hot cells keep a fruit on them classical (decoherence)', () => {
+    let definiteHot = 0;
+    let definiteCold = 0;
+    for (let s = 0; s < 30; s++) {
+      const hot = withFruits(500 + s, [['apple', 1, 13]]);
+      const cold = withFruits(500 + s, [['apple', 10, 2]]);
+      for (const { g } of [hot, cold]) {
+        g.setEyes(false);
+        for (let i = 0; i < 100; i++) {
+          (g as unknown as { acc: number }).acc = 0;
+          g.update(0.02);
+        }
+      }
+      // Probability left in the 2×2 square it started in (the hot patch, or plain floor).
+      const square = (f: Fruit, c0: number, r0: number) => {
+        let sum = 0;
+        for (const dc of [0, 1])
+          for (const dr of [0, 1]) sum += f.psi.probability(f.psi.lattice.siteAt(c0 + dc, r0 + dr));
+        return sum;
+      };
+      if (square(hot.made[0]!, 1, 13) > 0.5) definiteHot++;
+      if (square(cold.made[0]!, 10, 2) > 0.5) definiteCold++;
+    }
+    expect(definiteHot).toBeGreaterThan(definiteCold + 10);
+  });
+
+  it('a spread fruit has interference nodes: cells it cannot be in, with it on both sides', () => {
+    const { g, made } = withFruits(6, [['cherry', 6, 5]]);
+    g.setEyes(false);
+    let found = 0;
+    for (let i = 0; i < 200; i++) {
+      g.update(0.02);
+      found += g.nodes(made[0]!).length;
+    }
+    expect(found).toBeGreaterThan(0);
   });
 });
