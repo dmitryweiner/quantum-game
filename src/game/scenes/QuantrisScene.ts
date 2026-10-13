@@ -6,6 +6,8 @@ import { T } from '../../strings/ui';
 import { play } from '../audio';
 import { CELL, COLORS, UI_FONT } from '../constants';
 import { px } from '../display';
+import { DragGestures } from '../input/gestures';
+import { autoRepeat } from '../input/repeat';
 import { openMainMenu, setHash } from '../menu';
 import { fitCamera } from '../render/tiles';
 import { ui } from '../ui';
@@ -15,6 +17,8 @@ const EFFECTS: EffectId[] = ['superposition', 'collapse', 'born-rule'];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 /** One colour per tetromino (I O T S Z J L). */
 const COLOURS = [0x5fd3ff, 0xffd166, 0xc77dff, 0x7bd88f, 0xff6b6b, 0x5a8dee, 0xffa552];
+/** A short buzz where the device can (Android; iOS ignores it). */
+const buzz = (ms: number) => navigator.vibrate?.(ms);
 /**
  * Where things go, in cells: landscape — the "next" box right of the board;
  * portrait — above it, so the board can use the full width.
@@ -33,7 +37,10 @@ function arrangement(portrait: boolean) {
       };
 }
 
-/** Quantris (PLAN.md §9.3): renders QuantrisGame; keys or a button bar. */
+/**
+ * Quantris (PLAN.md §9.3): renders QuantrisGame. Touch: gestures on the well
+ * (drag, flick, tap) and a game-pad; desktop: keys with auto-repeat.
+ */
 export class QuantrisScene extends Phaser.Scene {
   private q!: QuantrisGame;
   private gfx!: Phaser.GameObjects.Graphics;
@@ -41,6 +48,8 @@ export class QuantrisScene extends Phaser.Scene {
   private running = false;
   private at = arrangement(false);
   private nextLabel!: Phaser.GameObjects.Text;
+  /** Stoppers of the keys held down right now (auto-repeat). */
+  private held = new Map<string, () => void>();
 
   constructor() {
     super('Quantris');
@@ -90,7 +99,6 @@ export class QuantrisScene extends Phaser.Scene {
     overlay.setArcadePad(
       isTouchDevice()
         ? {
-            up: { label: '⏬', aria: t.aria.drop, press: () => this.act(() => this.q.hardDrop()) },
             left: {
               label: '◀',
               aria: t.aria.left,
@@ -109,11 +117,8 @@ export class QuantrisScene extends Phaser.Scene {
               press: () => this.act(() => this.q.softDrop()),
               repeat: true,
             },
-            a: {
-              label: '⟳',
-              aria: t.aria.rotate,
-              press: () => this.act(() => (this.q.rotate(), [])),
-            },
+            up: { label: '⏬', aria: t.aria.drop, press: () => this.act(() => this.q.hardDrop()) },
+            a: { label: '⟳', aria: t.aria.rotate, press: () => this.act(() => this.q.rotate(1)) },
             b: { label: '👁', aria: t.aria.look, press: () => this.act(() => this.q.look()) },
           }
         : null,
@@ -135,9 +140,11 @@ export class QuantrisScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.layout, this);
       ui().setArcadePad(null);
+      this.releaseKeys();
     });
     this.layout();
     this.bindKeys();
+    this.bindGestures();
     this.render();
 
     overlay.showArcadeIntro(
@@ -162,30 +169,103 @@ export class QuantrisScene extends Phaser.Scene {
   }
 
   private bindKeys(): void {
-    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
-      const map: Record<string, () => QuantrisEvent[]> = {
-        ArrowLeft: () => this.q.move(-1),
-        ArrowRight: () => this.q.move(1),
-        ArrowUp: () => (this.q.rotate(), []),
-        ArrowDown: () => this.q.softDrop(),
-        Space: () => this.q.hardDrop(),
-        KeyL: () => this.q.look(),
-      };
-      const fn = map[e.code];
-      if (fn) {
-        e.preventDefault();
-        this.act(fn);
-      }
+    const kb = this.input.keyboard;
+    if (!kb) return;
+    // Moves repeat with DAS/ARR (not the OS key repeat); the rest fire once per press.
+    const repeating: Record<string, () => QuantrisEvent[]> = {
+      ArrowLeft: () => this.q.move(-1),
+      KeyA: () => this.q.move(-1),
+      ArrowRight: () => this.q.move(1),
+      KeyD: () => this.q.move(1),
+      ArrowDown: () => this.q.softDrop(),
+      KeyS: () => this.q.softDrop(),
+    };
+    const once: Record<string, () => QuantrisEvent[]> = {
+      ArrowUp: () => this.q.rotate(1),
+      KeyX: () => this.q.rotate(1),
+      KeyW: () => this.q.rotate(1),
+      KeyZ: () => this.q.rotate(-1),
+      Space: () => this.q.hardDrop(),
+      KeyL: () => this.q.look(),
+      KeyE: () => this.q.look(),
+    };
+    kb.on('keydown', (e: KeyboardEvent) => {
+      const fn = repeating[e.code] ?? once[e.code];
+      if (!fn) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (repeating[e.code]) {
+        this.held.get(e.code)?.();
+        this.held.set(
+          e.code,
+          autoRepeat(() => this.act(fn)),
+        );
+      } else this.act(fn);
     });
+    kb.on('keyup', (e: KeyboardEvent) => {
+      this.held.get(e.code)?.();
+      this.held.delete(e.code);
+    });
+    window.addEventListener('blur', this.releaseKeys);
+    this.events.once('shutdown', () => window.removeEventListener('blur', this.releaseKeys));
+  }
+
+  private releaseKeys = (): void => {
+    for (const stop of this.held.values()) stop();
+    this.held.clear();
+  };
+
+  /** Gestures on the well: drag to move, drag down to soft-drop, flick to drop, tap to turn. */
+  private bindGestures(): void {
+    const gestures = new DragGestures({
+      shift: (dx) => this.act(() => this.q.move(dx)),
+      down: () => this.act(() => this.q.softDrop()),
+      drop: () => this.act(() => this.q.hardDrop()),
+      tap: (x, y, fingers) => this.act(() => this.tap(x, y, fingers)),
+    });
+    const at = (p: Phaser.Input.Pointer) => {
+      const w = this.cameras.main.getWorldPoint(p.x, p.y);
+      return [w.x / CELL, w.y / CELL, performance.now() / 1000] as const;
+    };
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => gestures.down(p.id, ...at(p)));
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (p.isDown) gestures.move(p.id, ...at(p));
+    });
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => gestures.up(p.id, ...at(p)));
+    this.input.on('gameout', () => gestures.cancel());
+  }
+
+  /**
+   * A tap at world cell (x, y): on a superposed piece — look at it; left of
+   * the piece or with two fingers — turn counter-clockwise; else clockwise.
+   */
+  private tap(x: number, y: number, fingers: 1 | 2): QuantrisEvent[] {
+    if (fingers === 2) return this.q.rotate(-1);
+    const bx = x - this.at.board.x;
+    const by = y - this.at.board.y;
+    const { kind, rot, y: py, branches } = this.q.piece;
+    const cells = branches.flatMap((b) => pieceCells(kind, rot, b.x, py));
+    const onPiece = cells.some(
+      ([cx, cy]) => Math.abs(cx + 0.5 - bx) < 1 && Math.abs(cy + 0.5 - by) < 1,
+    );
+    if (onPiece && branches.length > 1) return this.q.look();
+    if (bx < Math.min(...cells.map(([cx]) => cx))) return this.q.rotate(-1);
+    return this.q.rotate(1);
   }
 
   private onEvents(events: QuantrisEvent[]): void {
     for (const e of events) {
-      if (e.type === 'collapsed') play('collapse');
-      else if (e.type === 'merged') play('snap');
-      else if (e.type === 'locked') play('hit');
-      else if (e.type === 'lines') play('lamp');
-      else if (e.type === 'over') this.gameOver();
+      if (e.type === 'collapsed') {
+        play('collapse');
+        buzz(25);
+      } else if (e.type === 'merged') play('snap');
+      else if (e.type === 'locked') {
+        play('hit');
+        buzz(12);
+      } else if (e.type === 'lines') {
+        play('lamp');
+        buzz(40);
+      } else if (e.type === 'over') this.gameOver();
     }
     this.updateHud();
   }

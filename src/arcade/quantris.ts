@@ -13,6 +13,10 @@ export const QUANTRIS = {
   looks: 3,
   maxLooks: 5,
   linesPerLevel: 10,
+  /** Seconds a landed piece can still be moved or turned before it locks. */
+  lockDelay: 0.5,
+  /** How many moves or turns on the ground restart the lock delay. */
+  lockResets: 3,
 } as const;
 
 type Shape = readonly (readonly [number, number])[];
@@ -116,7 +120,11 @@ export class QuantrisGame {
   lines = 0;
   level = 1;
   over = false;
+  /** The (definite) piece rests on the stack and locks after QUANTRIS.lockDelay. */
+  grounded = false;
   private fallAcc = 0;
+  private lockAcc = 0;
+  private lockResets = 0;
 
   constructor(private readonly rng: Rng) {
     this.next = this.makePiece();
@@ -153,6 +161,9 @@ export class QuantrisGame {
     this.piece = this.next;
     this.next = this.makePiece();
     this.fallAcc = 0;
+    this.grounded = false;
+    this.lockAcc = 0;
+    this.lockResets = 0;
     if (
       this.piece.branches.some(
         (b) => !this.fits(this.piece.kind, this.piece.rot, b.x, this.piece.y),
@@ -178,17 +189,56 @@ export class QuantrisGame {
     const events: QuantrisEvent[] = [];
     if (this.over) return events;
     const { kind, rot, y } = this.piece;
-    for (const b of this.piece.branches) if (this.fits(kind, rot, b.x + dx, y)) b.x += dx;
+    let moved = false;
+    for (const b of this.piece.branches)
+      if (this.fits(kind, rot, b.x + dx, y)) {
+        b.x += dx;
+        moved = true;
+      }
     this.mergeIfSame(events);
+    if (moved) this.afterShift();
     return events;
   }
 
-  /** Rotate clockwise, only if every branch can. */
-  rotate(): void {
-    if (this.over) return;
+  /**
+   * Rotate a quarter turn (1 clockwise, -1 counter-clockwise), only if every
+   * branch can. A branch against a wall or the stack is nudged sideways
+   * (a wall kick) if that makes it fit.
+   */
+  rotate(dir: 1 | -1 = 1): QuantrisEvent[] {
+    const events: QuantrisEvent[] = [];
+    if (this.over) return events;
     const { kind, y } = this.piece;
-    const rot = this.piece.rot + 1;
-    if (this.piece.branches.every((b) => this.fits(kind, rot, b.x, y))) this.piece.rot = rot;
+    const rot = this.piece.rot + dir;
+    const kicks = kind === 0 ? [0, -1, 1, -2, 2] : [0, -1, 1];
+    const xs = this.piece.branches.map((b) => {
+      const k = kicks.find((d) => this.fits(kind, rot, b.x + d, y));
+      return k === undefined ? null : b.x + k;
+    });
+    if (xs.some((x) => x === null)) return events;
+    this.piece.rot = rot;
+    this.piece.branches.forEach((b, i) => (b.x = xs[i]!));
+    this.mergeIfSame(events);
+    this.afterShift();
+    return events;
+  }
+
+  /** A move or turn on the ground restarts the lock delay (a few times) and may let it fall again. */
+  private afterShift(): void {
+    if (!this.grounded) return;
+    if (this.lockResets < QUANTRIS.lockResets) {
+      this.lockResets++;
+      this.lockAcc = 0;
+    }
+    if (this.canFall()) {
+      this.grounded = false;
+      this.fallAcc = 0;
+    }
+  }
+
+  private canFall(): boolean {
+    const { kind, rot, y } = this.piece;
+    return this.piece.branches.every((b) => this.fits(kind, rot, b.x, y + 1));
   }
 
   private mergeIfSame(events: QuantrisEvent[]): void {
@@ -219,27 +269,28 @@ export class QuantrisGame {
 
   /**
    * One row down. Touching the stack measures which branch is real: if the
-   * real one touched, the piece locks; otherwise it keeps falling.
-   * Returns true if the piece locked.
+   * real one touched, the piece is grounded (and locks after the lock
+   * delay); otherwise it keeps falling. Returns true if the piece moved down.
    */
   private fall(events: QuantrisEvent[]): boolean {
     const { kind, rot, y } = this.piece;
     const blocked = this.piece.branches.map((b) => !this.fits(kind, rot, b.x, y + 1));
     if (!blocked.some(Boolean)) {
       this.piece.y++;
-      return false;
+      return true;
     }
-    if (this.piece.branches.length === 2 && blocked[0] !== blocked[1]) {
+    if (this.piece.branches.length === 2) {
       const kept = this.collapse(events);
       if (!blocked[kept]) {
         this.piece.y++;
-        return false;
+        return true;
       }
-    } else if (this.piece.branches.length === 2) {
-      this.collapse(events);
     }
-    this.lock(events);
-    return true;
+    if (!this.grounded) {
+      this.grounded = true;
+      this.lockAcc = 0;
+    }
+    return false;
   }
 
   private lock(events: QuantrisEvent[]): void {
@@ -264,28 +315,36 @@ export class QuantrisGame {
     this.spawn(events);
   }
 
+  /** One row down now; on the ground it waits for the lock delay like any other fall. */
   softDrop(): QuantrisEvent[] {
     const events: QuantrisEvent[] = [];
-    if (!this.over) {
+    if (!this.over && !this.grounded) {
       this.fall(events);
       this.fallAcc = 0;
     }
     return events;
   }
 
+  /** All the way down and lock at once. */
   hardDrop(): QuantrisEvent[] {
     const events: QuantrisEvent[] = [];
     if (this.over) return events;
     let guard = QUANTRIS.rows + 2;
-    while (!this.fall(events) && guard-- > 0) this.score += 1;
+    while (this.fall(events) && guard-- > 0) this.score += 1;
+    this.lock(events);
     return events;
   }
 
   update(dt: number): QuantrisEvent[] {
     const events: QuantrisEvent[] = [];
     if (this.over) return events;
+    if (this.grounded) {
+      this.lockAcc += dt;
+      if (this.lockAcc >= QUANTRIS.lockDelay) this.lock(events);
+      return events;
+    }
     this.fallAcc += dt;
-    while (this.fallAcc >= this.fallTime && !this.over) {
+    while (this.fallAcc >= this.fallTime && !this.over && !this.grounded) {
       this.fallAcc -= this.fallTime;
       this.fall(events);
     }

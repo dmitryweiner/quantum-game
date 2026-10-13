@@ -6,13 +6,18 @@ import { EFFECTS, type EffectId } from '../../strings/effects';
 import { LOCALES, locale, onLocaleChange, setLocale, tr } from '../../i18n';
 import { T } from '../../strings/ui';
 import { play, setSoundEnabled, soundEnabled } from '../audio';
+import { autoRepeat } from '../input/repeat';
 import { h, type Child } from './dom';
 import { chshPanel, type ChshState } from './ChshPanel';
 import type { InspectInfo } from './inspect';
 import { bestScore, completedLevels } from './progress';
 import './ui.css';
 
-/** Buttons of the on-screen game-pad. */
+/**
+ * Buttons of the on-screen game-pad. Portrait: big ◀ ▶ in the bottom corners
+ * under the thumbs, round B and A above them, small `down` and `up` between.
+ * Landscape: ◀ ▶ (and `down`) left of the board, B A (and `up`) right of it.
+ */
 export type PadKey = 'up' | 'down' | 'left' | 'right' | 'a' | 'b';
 export interface PadButton {
   label: string;
@@ -627,9 +632,8 @@ export class Ui {
   }
 
   /**
-   * A game-pad at the bottom for arcades, laid out like a handheld console:
-   * a cross on the left (up, left, right, down) and round A / B buttons on
-   * the right. `repeat` buttons fire again while held, like a held key.
+   * A game-pad for arcades (see PadKey for the layout). `repeat` buttons
+   * fire again while held, with the standard delay and rate (REPEAT).
    */
   setArcadePad(pad: Partial<Record<PadKey, PadButton>> | null): void {
     this.buttonBar?.remove();
@@ -639,33 +643,23 @@ export class Ui {
       const b = pad[key];
       if (!b) return h('span', { class: `pad-gap pad-${key}` });
       const el = h('button', { class: `btn pad-btn pad-${key}`, 'aria-label': b.aria }, b.label);
-      let timer: number | undefined;
-      const stop = () => {
-        window.clearTimeout(timer);
-        timer = undefined;
+      let stop: (() => void) | null = null;
+      const release = () => {
+        stop?.();
+        stop = null;
       };
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        b.press();
-        if (!b.repeat) return;
-        const again = (delay: number) => {
-          timer = window.setTimeout(() => {
-            b.press();
-            again(70);
-          }, delay);
-        };
-        again(200);
+        release();
+        if (b.repeat) stop = autoRepeat(b.press);
+        else b.press();
       });
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
-        el.addEventListener(ev, stop);
+        el.addEventListener(ev, release);
       return el;
     };
-    this.buttonBar = h(
-      'div',
-      { class: 'arcade-pad' },
-      h('div', { class: 'pad-cross' }, make('up'), make('left'), make('right'), make('down')),
-      h('div', { class: 'pad-ab' }, make('b'), make('a')),
-    );
+    const keys: PadKey[] = ['b', 'a', 'left', 'down', 'up', 'right'];
+    this.buttonBar = h('div', { class: 'arcade-pad' }, ...keys.map(make));
     this.root.append(this.buttonBar);
   }
 

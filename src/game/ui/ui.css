@@ -420,37 +420,55 @@
   margin: 4px 0;
 }
 
-/* Arcade game-pad: a cross on the left, A / B on the right (like a handheld). */
+/*
+ * Arcade game-pad. Portrait: big ◀ ▶ in the bottom corners under the thumbs,
+ * round B A above them, small ▼ ⏬ between. Landscape: ◀ ▶ ▼ left of the
+ * board, B A ⏬ right of it.
+ */
 .arcade-pad {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
   bottom: max(10px, env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 0 max(14px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: 64px 1fr 48px 48px 1fr 64px;
+  grid-template-rows: 60px 64px;
+  grid-template-areas:
+    'b . . . . a'
+    'left . down up . right';
+  gap: 10px 12px;
+  align-items: end;
+  justify-items: center;
   pointer-events: none;
 }
 
-.pad-cross {
-  display: grid;
-  grid-template-columns: repeat(3, 54px);
-  grid-template-rows: repeat(3, 54px);
-  gap: 2px;
+.arcade-pad .pad-a {
+  grid-area: a;
+}
+.arcade-pad .pad-b {
+  grid-area: b;
+}
+.arcade-pad .pad-left {
+  grid-area: left;
+}
+.arcade-pad .pad-right {
+  grid-area: right;
+}
+.arcade-pad .pad-down {
+  grid-area: down;
+}
+.arcade-pad .pad-up {
+  grid-area: up;
 }
 
-.pad-cross .pad-up {
-  grid-area: 1 / 2;
-}
-.pad-cross .pad-left {
-  grid-area: 2 / 1;
-}
-.pad-cross .pad-right {
-  grid-area: 2 / 3;
-}
-.pad-cross .pad-down {
-  grid-area: 3 / 2;
+@media (orientation: landscape) {
+  .arcade-pad {
+    grid-template-columns: 64px 64px 1fr 60px 64px;
+    grid-template-rows: 48px 64px;
+    grid-template-areas:
+      'down down . up .'
+      'left right . b a';
+  }
 }
 
 .pad-btn {
@@ -460,27 +478,37 @@
   font-size: 24px;
   touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
 }
 
-.pad-ab {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  padding-bottom: 6px;
+.arcade-pad .pad-left,
+.arcade-pad .pad-right {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  font-size: 30px;
 }
 
-.pad-ab .pad-btn {
-  width: 66px;
-  height: 66px;
+.arcade-pad .pad-a,
+.arcade-pad .pad-b {
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  font-size: 28px;
+  font-size: 26px;
 }
 
-/* A sits higher than B, like on a Game Boy. */
-.pad-ab .pad-a {
-  margin-bottom: 34px;
+.arcade-pad .pad-a {
   background: var(--accent);
   color: #08101f;
+}
+
+.arcade-pad .pad-down,
+.arcade-pad .pad-up {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 20px;
+  opacity: 0.85;
 }
 
 /* The last seconds of a timed level. */

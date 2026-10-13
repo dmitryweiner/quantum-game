@@ -86,4 +86,66 @@ describe('Quantris', () => {
     for (let i = 0; i < 50 && !g.over; i++) g.hardDrop();
     expect(g.over).toBe(true);
   });
+
+  it('a landed piece can still be moved until the lock delay runs out', () => {
+    const g = new QuantrisGame(mulberry32(4));
+    g.piece = { kind: 1, rot: 0, y: QUANTRIS.rows - 2, branches: [{ x: 4, p: 1 }] };
+    g.update(g.fallTime);
+    expect(g.grounded).toBe(true);
+    g.update(QUANTRIS.lockDelay * 0.8);
+    g.move(1);
+    // The move restarted the delay: not locked yet.
+    g.update(QUANTRIS.lockDelay * 0.8);
+    expect(g.board[QUANTRIS.rows - 1]![5]).toBe(-1);
+    g.update(QUANTRIS.lockDelay * 0.3);
+    expect(g.board[QUANTRIS.rows - 1]![5]).toBe(1);
+  });
+
+  it('restarts the lock delay only a few times', () => {
+    const g = new QuantrisGame(mulberry32(5));
+    g.piece = { kind: 1, rot: 0, y: QUANTRIS.rows - 2, branches: [{ x: 4, p: 1 }] };
+    g.update(g.fallTime);
+    for (let i = 0; i <= QUANTRIS.lockResets; i++) {
+      g.update(QUANTRIS.lockDelay * 0.6);
+      g.move(i % 2 ? 1 : -1);
+    }
+    g.update(QUANTRIS.lockDelay * 0.6);
+    expect(g.board[QUANTRIS.rows - 1]!.some((c) => c === 1)).toBe(true);
+  });
+
+  it('a piece moved off a ledge falls again', () => {
+    const g = new QuantrisGame(mulberry32(6));
+    for (let c = 0; c < 4; c++) g.board[QUANTRIS.rows - 1]![c] = 2;
+    g.piece = { kind: 1, rot: 0, y: QUANTRIS.rows - 3, branches: [{ x: 2, p: 1 }] };
+    g.update(g.fallTime);
+    expect(g.grounded).toBe(true);
+    g.move(1);
+    g.move(1);
+    expect(g.grounded).toBe(false);
+    g.hardDrop();
+    expect(g.board[QUANTRIS.rows - 1]![4]).toBe(1);
+  });
+
+  it('kicks a piece off the wall when it turns', () => {
+    const g = new QuantrisGame(mulberry32(7));
+    // A vertical I against the right wall: turning it flat must push it left.
+    g.piece = { kind: 0, rot: 1, y: 2, branches: [{ x: QUANTRIS.cols - 3, p: 1 }] };
+    expect(pieceCells(0, 1, QUANTRIS.cols - 3, 2).every(([x]) => x === QUANTRIS.cols - 1)).toBe(
+      true,
+    );
+    g.rotate(1);
+    expect(g.piece.rot).toBe(2);
+    const cells = pieceCells(0, 2, g.piece.branches[0]!.x, 2);
+    expect(cells.every(([x]) => x >= 0 && x < QUANTRIS.cols)).toBe(true);
+  });
+
+  it('turns both ways', () => {
+    const g = new QuantrisGame(mulberry32(8));
+    g.piece = { kind: 2, rot: 0, y: 3, branches: [{ x: 4, p: 1 }] };
+    g.rotate(-1);
+    expect(((g.piece.rot % 4) + 4) % 4).toBe(3);
+    g.rotate(1);
+    g.rotate(1);
+    expect(((g.piece.rot % 4) + 4) % 4).toBe(1);
+  });
 });

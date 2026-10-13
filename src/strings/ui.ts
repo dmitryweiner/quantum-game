@@ -59,8 +59,10 @@ const EN = {
         'Press 👁 to look and settle it early. Looks are few; each cleared line gives one back.',
         'Push both places against a wall until they meet: two identical places are one — the piece becomes certain.',
       ],
-      controlsTouch: 'Cross: ◀ ▶ move, ▼ down, ⏬ drop. Round buttons: ⟳ rotate, 👁 look.',
-      controlsDesktop: '← → move · ↑ rotate · ↓ down · Space drop · L look.',
+      controlsTouch:
+        'On the well: drag sideways to move, drag down to speed up, flick down to drop. Tap to turn (two fingers or left of the piece — the other way); tap a glowing piece to look. Buttons: ◀ ▶ move, ⟳ turn, 👁 look, ▼ down, ⏬ drop.',
+      controlsDesktop:
+        '← → move · ↑ / X turn · Z turn back · ↓ down · Space drop · L look. A landed piece can still slide for half a second.',
       aria: {
         left: 'Move left',
         right: 'Move right',
@@ -314,8 +316,9 @@ const RU: Strings = {
         'Упри оба места в стену, пока они не совпадут: два одинаковых места — это одно, и фигура становится определённой.',
       ],
       controlsTouch:
-        'Крестовина: ◀ ▶ сдвиг, ▼ вниз, ⏬ бросок. Круглые кнопки: ⟳ поворот, 👁 взгляд.',
-      controlsDesktop: '← → сдвиг · ↑ поворот · ↓ вниз · Пробел — бросок · L — взгляд.',
+        'На стакане: веди пальцем вбок — сдвиг, вниз — ускорить, резко смахни вниз — бросок. Тап — поворот (двумя пальцами или слева от фигуры — в другую сторону); тап по светящейся фигуре — взгляд. Кнопки: ◀ ▶ сдвиг, ⟳ поворот, 👁 взгляд, ▼ вниз, ⏬ бросок.',
+      controlsDesktop:
+        '← → сдвиг · ↑ / X поворот · Z поворот назад · ↓ вниз · Пробел — бросок · L — взгляд. Приземлившуюся фигуру ещё полсекунды можно двигать.',
       aria: {
         left: 'Влево',
         right: 'Вправо',
