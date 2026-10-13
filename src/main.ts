@@ -6,7 +6,7 @@ import { BootScene } from './game/scenes/BootScene';
 import { LevelScene } from './game/scenes/LevelScene';
 import { SnakeScene } from './game/scenes/SnakeScene';
 import { QuantrisScene } from './game/scenes/QuantrisScene';
-import { TanksScene } from './game/scenes/TanksScene';
+import { InvadersScene } from './game/scenes/InvadersScene';
 
 installAudioUnlock();
 
@@ -24,7 +24,7 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   disableContextMenu: true,
-  scene: [BootScene, LevelScene, SnakeScene, TanksScene, QuantrisScene],
+  scene: [BootScene, LevelScene, SnakeScene, InvadersScene, QuantrisScene],
 });
 
 // Editing the address (or following a #link) while the game is open switches to that game.

@@ -4,9 +4,10 @@ import { idFromHash } from '../src/game/routes';
 describe('links', () => {
   it('opens arcades by short names (and old spellings)', () => {
     expect(idFromHash('#snake')).toBe('arcade:snake');
-    expect(idFromHash('#ships')).toBe('arcade:tanks');
+    expect(idFromHash('#ships')).toBe('arcade:invaders');
+    expect(idFromHash('#invaders')).toBe('arcade:invaders');
     expect(idFromHash('arcade:quantris')).toBe('arcade:quantris');
-    expect(idFromHash('#Tanks')).toBe('arcade:tanks');
+    expect(idFromHash('#Tanks')).toBe('arcade:invaders');
     expect(idFromHash('#quantris')).toBe('arcade:quantris');
   });
 

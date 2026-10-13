@@ -25,6 +25,8 @@ export interface PadButton {
   aria: string;
   press: () => void;
   repeat?: boolean;
+  /** Called when the button is let go (for buttons that are held, like a searchlight). */
+  release?: () => void;
 }
 
 /** How an arcade game ended: the score table and the paradoxes seen (S3). */
@@ -413,7 +415,7 @@ export class Ui {
         'ul',
         { class: 'level-list' },
         h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
-        ...(['snake', 'tanks', 'quantris'] as const).map((id) =>
+        ...(['snake', 'invaders', 'quantris'] as const).map((id) =>
           h(
             'li',
             {},
@@ -691,13 +693,17 @@ export class Ui {
       if (!b) return h('span', { class: `pad-gap pad-${key}` });
       const el = h('button', { class: `btn pad-btn pad-${key}`, 'aria-label': b.aria }, b.label);
       let stop: (() => void) | null = null;
+      let held = false;
       const release = () => {
         stop?.();
         stop = null;
+        if (held) b.release?.();
+        held = false;
       };
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        release();
+        stop?.();
+        held = true;
         if (b.repeat) stop = autoRepeat(b.press);
         else b.press();
       });

@@ -3,6 +3,12 @@ import { CELL, COLORS } from '../constants';
 import { emojiTexture } from '../emoji';
 import type { QuantumBody } from '../systems/LevelSim';
 
+/** Colour of a complex amplitude's phase: hue = arg ψ (S5). */
+export function phaseColour(re: number, im: number): number {
+  const hue = (Math.atan2(im, re) / (2 * Math.PI) + 1) % 1;
+  return Phaser.Display.Color.HSVToRGB(hue, 0.5, 1).color;
+}
+
 /** Below this probability a ghost is not drawn at all. */
 const MIN_P = 0.003;
 /** ...nor below this fraction of the brightest ghost. */
@@ -23,6 +29,11 @@ export class QuantumObject {
     private readonly scene: Phaser.Scene,
     private readonly layer: Phaser.GameObjects.Layer,
     readonly body: QuantumBody,
+    /**
+     * Draw the spread object as a wave (S5): cells coloured by the phase of
+     * their amplitude (hue = arg ψ), no emoji ghosts — stripes become visible.
+     */
+    private readonly phase = false,
   ) {
     const { lattice } = body.psi;
     this.heat = scene.add.graphics();
@@ -88,12 +99,23 @@ export class QuantumObject {
       const x = (lattice.col[i]! + 0.5) * CELL;
       const y = (lattice.row[i]! + 0.5) * CELL;
       if (definite) {
-        img.setVisible(true).setAlpha(1).setPosition(x, y).setDisplaySize(this.size, this.size);
+        img
+          .setVisible(true)
+          .setAlpha(1)
+          .setPosition(x, y)
+          .setDisplaySize(this.size, this.size)
+          .clearTint();
         continue;
       }
       // Fainter ghosts shimmer more.
       const wobble = (1 - rel) * 3;
       const size = this.size * (0.55 + 0.45 * rel);
+      if (this.phase) {
+        img.setVisible(false);
+        this.heat.fillStyle(phaseColour(psi.re[i]!, psi.im[i]!), 0.12 + 0.6 * rel);
+        this.heat.fillRect(x - CELL / 2 + 3, y - CELL / 2 + 3, CELL - 6, CELL - 6);
+        continue;
+      }
       img
         .setVisible(true)
         .setDisplaySize(size, size)

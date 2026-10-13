@@ -161,4 +161,17 @@ describe('quantum snake', () => {
     for (let i = 0; i < 20; i++) g.update(0.02);
     expect(g.apples[0]!.psi.definiteSite()).toBe(g.apples[0]!.psi.lattice.siteAt(1, 1));
   });
+
+  it('an apple held in view long enough is named as a Zeno freeze', () => {
+    const g = new SnakeGame(OPEN, mulberry32(11));
+    placeApple(g, 3, 1);
+    // The head would reach it; keep it from moving by never letting a step happen.
+    let zeno = false;
+    for (let i = 0; i < 160 && !zeno; i++) {
+      (g as unknown as { acc: number }).acc = 0;
+      for (const e of g.update(0.02))
+        if (e.type === 'paradox' && e.paradox.kind === 'zeno') zeno = true;
+    }
+    expect(zeno).toBe(true);
+  });
 });

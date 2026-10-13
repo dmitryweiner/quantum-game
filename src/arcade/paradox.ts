@@ -16,7 +16,9 @@ export type ParadoxKind =
   /** Passed through a wall it cannot cross. */
   | 'tunnel'
   /** One collapse set another object far away. `value`: cells. */
-  | 'spooky';
+  | 'spooky'
+  /** A wave through two slits landed where only interference sends it. `value`: column. */
+  | 'interference';
 
 export interface Paradox {
   kind: ParadoxKind;
@@ -30,6 +32,7 @@ export const PARADOX_EFFECT: Readonly<Record<ParadoxKind, EffectId>> = {
   zeno: 'zeno',
   tunnel: 'tunnelling',
   spooky: 'entanglement',
+  interference: 'interference',
 };
 
 /** Thresholds: what is surprising enough to be named. */

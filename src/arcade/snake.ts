@@ -162,6 +162,8 @@ export class SnakeGame {
 
     // Apples spread while unwatched; the head's view measures them every frame.
     this.apples.forEach((apple, index) => {
+      // Definite before this frame's spreading: then a find in the same cell is a Zeno hold.
+      const before = apple.psi.definiteSite();
       if (!this.classical) apple.psi.evolve(dt);
       const { lattice } = apple.psi;
       for (let i = 0; i < lattice.size; i++) {
@@ -171,7 +173,6 @@ export class SnakeGame {
             blocksSight(this.map, c, r),
           );
       }
-      const before = apple.psi.definiteSite();
       const out = apple.psi.measure(apple.seen, this.rng);
       if (out.kind === 'found' && before < 0) {
         events.push({ type: 'collapsed', apple: index, site: out.site });

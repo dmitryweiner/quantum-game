@@ -12,6 +12,7 @@ const SOUND: Readonly<Record<ParadoxKind, SoundName>> = {
   zeno: 'freeze',
   tunnel: 'whoosh',
   spooky: 'chime',
+  interference: 'hum',
 };
 
 export function paradoxText(p: Paradox): string {
@@ -30,6 +31,8 @@ export function paradoxText(p: Paradox): string {
       return t.tunnel;
     case 'spooky':
       return t.spooky(p.value);
+    case 'interference':
+      return t.interference;
   }
 }
 
