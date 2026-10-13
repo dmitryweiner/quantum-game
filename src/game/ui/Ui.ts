@@ -415,7 +415,7 @@ export class Ui {
         'ul',
         { class: 'level-list' },
         h('li', {}, h('button', { class: 'btn', onclick: pick('sandbox') }, '🧪', T().sandboxNote)),
-        ...(['snake', 'invaders', 'quantris'] as const).map((id) =>
+        ...(['snake', 'invaders', 'pong', 'quantris'] as const).map((id) =>
           h(
             'li',
             {},

@@ -4,6 +4,7 @@ import { levelById } from '../levels';
 export const ARCADE_SCENES: Readonly<Record<string, string>> = {
   'arcade:snake': 'Snake',
   'arcade:invaders': 'Invaders',
+  'arcade:pong': 'Pong',
   'arcade:quantris': 'Quantris',
 };
 
@@ -11,12 +12,14 @@ export const ARCADE_SCENES: Readonly<Record<string, string>> = {
 export const HASH_OF: Readonly<Record<string, string>> = {
   'arcade:snake': 'snake',
   'arcade:invaders': 'invaders',
+  'arcade:pong': 'pong',
   'arcade:quantris': 'quantris',
 };
 /** Accepted spellings of each hash, including older names. */
 const FROM_HASH: Readonly<Record<string, string>> = {
   snake: 'arcade:snake',
   invaders: 'arcade:invaders',
+  pong: 'arcade:pong',
   // The starships became the invaders: old links still work.
   ships: 'arcade:invaders',
   tanks: 'arcade:invaders',

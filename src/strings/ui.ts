@@ -126,6 +126,33 @@ const EN = {
       aria: { look: 'Searchlight', fire: 'Fire', torpedo: 'Launch a quantum torpedo' },
       wave: (n: number) => `Wave ${n}!`,
     },
+    pong: {
+      title: 'Quantum Pong',
+      menu: '🏓 Quantum Pong',
+      goal: 'First to 7 — the ball is a wave until somebody looks',
+      hud: (
+        you: number,
+        ai: number,
+        energy: number,
+        score: number,
+        paradoxes: number,
+        best: number,
+      ) => `🏓 ${you}:${ai} · ⚡ ${energy} · ⭐ ${score} · 🤯 ${paradoxes} · 🏆 ${best}`,
+      rules: [
+        'The ball is a wave packet: unwatched, it spreads as it flies — by the time it reaches you it is a cloud wider than your paddle. The grey ring is where a classical ball would be.',
+        'Your paddle is a detector: where the cloud touches it, the ball may turn out to be there — and bounce back. The goal line behind you is a detector too.',
+        'Hold a finger on your half to look 👁: the ball is caught somewhere in the light and pinned down. Look late, just before your paddle — the sharper a ball is pinned, the faster it spreads again (uncertainty).',
+        'Looking costs energy ⚡. A long look turns the ball into an ordinary, classical one.',
+        'The wall in front of the computer’s goal stops the ball — almost: now and then it tunnels through.',
+        'The computer steers by the classical expectation — the middle of the cloud — and misses when the ball turns up off to the side.',
+      ],
+      controlsTouch:
+        'Drag along the bottom to move the paddle. Hold a finger on your half to look.',
+      controlsDesktop:
+        'Mouse or ← → move the paddle · hold the left button (or Space) to look at the mouse.',
+      win: 'You win! 🏆',
+      lose: 'The computer wins this time.',
+    },
     snake: {
       title: 'Quantum Snake',
       menu: '🐍 Quantum Snake',
@@ -419,6 +446,32 @@ const RU: Strings = {
         '← → / A D — движение · Пробел — огонь · держи Shift или L — свет · E или правая кнопка — торпеда.',
       aria: { look: 'Прожектор', fire: 'Огонь', torpedo: 'Запустить квантовую торпеду' },
       wave: (n: number) => `Волна ${n}!`,
+    },
+    pong: {
+      title: 'Квантовый пинг-понг',
+      menu: '🏓 Квантовый пинг-понг',
+      goal: 'До 7 очков — мяч остаётся волной, пока кто-нибудь не посмотрит',
+      hud: (
+        you: number,
+        ai: number,
+        energy: number,
+        score: number,
+        paradoxes: number,
+        best: number,
+      ) => `🏓 ${you}:${ai} · ⚡ ${energy} · ⭐ ${score} · 🤯 ${paradoxes} · 🏆 ${best}`,
+      rules: [
+        'Мяч — волновой пакет: без взгляда он расплывается в полёте, и до тебя долетает облако шире ракетки. Серое кольцо — где был бы классический мяч.',
+        'Ракетка — детектор: где облако её касается, мяч может там оказаться — и отскочить. Линия ворот за тобой — тоже детектор.',
+        'Держи палец на своей половине — это взгляд 👁: мяч ловится где-то в свете и определяется. Смотри поздно, у самой ракетки: чем точнее мяч определён, тем быстрее он снова расплывается (неопределённость).',
+        'Взгляд тратит энергию ⚡. Если смотреть долго, мяч становится обычным, классическим.',
+        'Стенка перед воротами компьютера останавливает мяч — почти: иногда он сквозь неё туннелирует.',
+        'Компьютер ведёт ракетку к классическому ожиданию — середине облака — и промахивается, когда мяч оказывается сбоку.',
+      ],
+      controlsTouch: 'Веди пальцем внизу — ракетка. Держи палец на своей половине — взгляд.',
+      controlsDesktop:
+        'Мышь или ← → — ракетка · держи левую кнопку (или пробел) — смотреть туда, где мышь.',
+      win: 'Победа! 🏆',
+      lose: 'На этот раз выиграл компьютер.',
     },
     snake: {
       title: 'Квантовая змейка',
