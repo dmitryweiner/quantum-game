@@ -21,23 +21,54 @@ export function markCompleted(id: string): void {
 }
 
 const BEST = 'quantum-game:best:';
+const TABLE = 'quantum-game:scores:';
+/** How many best games an arcade remembers. */
+export const TABLE_SIZE = 5;
 
-/** Best arcade score for a game id (0 if none or storage is blocked). */
-export function bestScore(id: string): number {
+/** Which physics a game was played with (S4): one table, each entry marked ⚪ / ⚛. */
+export type ScoreMode = 'quantum' | 'classical';
+export interface ScoreEntry {
+  score: number;
+  mode: ScoreMode;
+}
+
+/** Best games of an arcade, best first. A record from before the table counts as quantum. */
+export function topScores(id: string): ScoreEntry[] {
   try {
-    return Number(localStorage.getItem(BEST + id) ?? 0) || 0;
+    const raw = localStorage.getItem(TABLE + id);
+    if (raw) return JSON.parse(raw) as ScoreEntry[];
+    const old = Number(localStorage.getItem(BEST + id) ?? 0) || 0;
+    return old > 0 ? [{ score: old, mode: 'quantum' }] : [];
   } catch {
-    return 0;
+    return [];
   }
 }
 
-/** Saves `score` if it beats the record; returns true for a new record. */
-export function saveBest(id: string, score: number): boolean {
-  if (score <= bestScore(id)) return false;
+/** Best arcade score for a game id (0 if none or storage is blocked). */
+export function bestScore(id: string): number {
+  return topScores(id)[0]?.score ?? 0;
+}
+
+/**
+ * Adds a finished game to the table; returns its place (0 = new record), or
+ * -1 if it did not make the table.
+ */
+export function addScore(id: string, score: number, mode: ScoreMode): number {
+  if (score <= 0) return -1;
+  const table = topScores(id);
+  let place = table.findIndex((e) => score > e.score);
+  if (place < 0) place = table.length;
+  if (place >= TABLE_SIZE) return -1;
+  table.splice(place, 0, { score, mode });
   try {
-    localStorage.setItem(BEST + id, String(score));
+    localStorage.setItem(TABLE + id, JSON.stringify(table.slice(0, TABLE_SIZE)));
   } catch {
     // Not remembered.
   }
-  return true;
+  return place;
+}
+
+/** Saves `score` (quantum mode); returns true for a new record. */
+export function saveBest(id: string, score: number): boolean {
+  return addScore(id, score, 'quantum') === 0;
 }

@@ -15,6 +15,8 @@ const MIN_REL = 0.12;
 export class QuantumObject {
   private readonly ghosts: Phaser.GameObjects.Image[];
   private readonly heat: Phaser.GameObjects.Graphics;
+  private readonly twin: Phaser.GameObjects.Image;
+  private readonly twinRing: Phaser.GameObjects.Graphics;
   private readonly size = CELL * 0.8;
 
   constructor(
@@ -26,6 +28,15 @@ export class QuantumObject {
     this.heat = scene.add.graphics();
     layer.add(this.heat);
     const key = emojiTexture(scene, body.def.emoji);
+    // The classical twin (S1): a grey outline where the object would be classically.
+    this.twinRing = scene.add.graphics();
+    this.twin = scene.add
+      .image(0, 0, key)
+      .setDisplaySize(this.size * 0.8, this.size * 0.8)
+      .setTint(0x9aa0b8)
+      .setAlpha(0.5)
+      .setVisible(false);
+    layer.add([this.twinRing, this.twin]);
     this.ghosts = Array.from({ length: lattice.size }, (_, i) => {
       const img = scene.add
         .image((lattice.col[i]! + 0.5) * CELL, (lattice.row[i]! + 0.5) * CELL, key)
@@ -36,13 +47,33 @@ export class QuantumObject {
     });
   }
 
-  render(time: number): void {
+  /**
+   * Draws the object; `classical` (cells) is where it would be classically —
+   * shown as a grey twin while the object is spread out.
+   */
+  render(time: number, classical?: { x: number; y: number } | null): void {
     const { psi } = this.body;
     const { lattice } = psi;
     const p = psi.probabilities();
     let pMax = 0;
     for (const v of p) pMax = Math.max(pMax, v);
     const definite = pMax > 1 - 1e-9;
+
+    this.twinRing.clear();
+    const showTwin = !!classical && !definite;
+    this.twin.setVisible(showTwin);
+    if (showTwin) {
+      const x = (classical.x + 0.5) * CELL;
+      const y = (classical.y + 0.5) * CELL;
+      this.twin.setPosition(x, y);
+      this.twinRing.lineStyle(3, 0xc0c6dc, 0.9);
+      // Dashed circle.
+      for (let a = 0; a < 16; a += 2)
+        this.twinRing
+          .beginPath()
+          .arc(x, y, CELL * 0.42, (a * Math.PI) / 8, ((a + 1) * Math.PI) / 8)
+          .strokePath();
+    }
 
     this.heat.clear();
     for (let i = 0; i < lattice.size; i++) {
@@ -80,6 +111,8 @@ export class QuantumObject {
   destroy(): void {
     for (const g of this.ghosts) g.destroy();
     this.heat.destroy();
+    this.twin.destroy();
+    this.twinRing.destroy();
   }
 
   /** Expanding ring where the object was just found. */

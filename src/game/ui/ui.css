@@ -536,3 +536,49 @@
   pointer-events: auto;
   touch-action: none;
 }
+
+/* A paradox caption (S2): pops in under the HUD, fades out. */
+.toast {
+  position: absolute;
+  left: 50%;
+  width: max-content;
+  max-width: min(90vw, 420px);
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(30, 20, 60, 0.92);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  animation: toast 1.9s ease-out forwards;
+}
+
+@keyframes toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.92);
+  }
+  10%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.panel .score-table {
+  margin: 4px 0 8px;
+  padding-left: 28px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.panel .score-table .mine {
+  color: var(--accent);
+  font-weight: 700;
+}

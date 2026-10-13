@@ -4,6 +4,7 @@ import type { Rng } from '../quantum/rng';
 import { Superposition } from '../quantum/superposition';
 import { cellSeen, type Cone } from '../game/systems/sight';
 import type { QuantumBody } from '../game/systems/LevelSim';
+import { ClassicalTwin, SHOCK, spreadMultiplier, type Paradox } from './paradox';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 const STEP: Readonly<Record<Dir, readonly [number, number]>> = {
@@ -48,7 +49,10 @@ export interface Cell {
 export type SnakeEvent =
   | { type: 'collapsed'; apple: number; site: number }
   | { type: 'missed'; col: number; row: number }
-  | { type: 'ate'; col: number; row: number }
+  /** `points`: 1…3, more for an apple caught while still spread out. */
+  | { type: 'ate'; col: number; row: number; points: number }
+  /** Something classically impossible, at (col, row); `from`: the classical place. */
+  | { type: 'paradox'; paradox: Paradox; col: number; row: number; from: Cell }
   | { type: 'died' };
 
 /**
@@ -68,6 +72,12 @@ export class SnakeGame {
   score = 0;
   alive = true;
   cone: Cone | null = null;
+  /** The head looks ahead unless the player closes its eyes (🙈). */
+  eyesOpen = true;
+  /** Where each apple would be classically: where it was last seen (S1). */
+  readonly twins: ClassicalTwin[] = [];
+  /** Seconds each apple has been held definite by the head's look (Zeno). */
+  private watched: number[] = [];
   private readonly open: (c: number, r: number) => boolean;
 
   constructor(
@@ -120,9 +130,21 @@ export class SnakeGame {
       seen: new Array<boolean>(lattice.size).fill(false),
     };
     this.apples[index] = body;
+    this.twins[index] = new ClassicalTwin(at.col, at.row);
+    this.watched[index] = 0;
+  }
+
+  /** Close or open the eyes: closed, the head measures only the cell it enters. */
+  setEyes(open: boolean): void {
+    this.eyesOpen = open;
+    this.updateCone();
   }
 
   private updateCone(): void {
+    if (!this.eyesOpen) {
+      this.cone = null;
+      return;
+    }
     const h = this.head;
     this.cone = {
       origin: { x: h.col + 0.5, y: h.row + 0.5 },
@@ -147,10 +169,29 @@ export class SnakeGame {
             blocksSight(this.map, c, r),
           );
       }
-      const wasDefinite = apple.psi.definiteSite() >= 0;
+      const before = apple.psi.definiteSite();
       const out = apple.psi.measure(apple.seen, this.rng);
-      if (out.kind === 'found' && !wasDefinite)
+      if (out.kind === 'found' && before < 0) {
         events.push({ type: 'collapsed', apple: index, site: out.site });
+        this.foundAt(index, out.site, events);
+      }
+      // Seen and still where it was: the look holds it (Zeno). Named once per apple.
+      const twin = this.twins[index]!;
+      if (out.kind === 'found' && before === out.site) {
+        this.watched[index]! += dt;
+        if (
+          this.watched[index]! >= SHOCK.zenoSeconds &&
+          this.watched[index]! - dt < SHOCK.zenoSeconds
+        ) {
+          const at = { col: twin.x, row: twin.y };
+          events.push({
+            type: 'paradox',
+            paradox: { kind: 'zeno', value: SHOCK.zenoSeconds },
+            ...at,
+            from: at,
+          });
+        }
+      } else this.watched[index] = 0;
     });
 
     this.acc += dt;
@@ -159,6 +200,18 @@ export class SnakeGame {
       this.step(events);
     }
     return events;
+  }
+
+  /** Apple `index` turned out to be at `site`: name it if that is far from the classical place. */
+  private foundAt(index: number, site: number, events: SnakeEvent[]): void {
+    const { lattice } = this.apples[index]!.psi;
+    const col = lattice.col[site]!;
+    const row = lattice.row[site]!;
+    const twin = this.twins[index]!;
+    const far = twin.farFrom(col, row);
+    if (far)
+      events.push({ type: 'paradox', paradox: far, col, row, from: { col: twin.x, row: twin.y } });
+    twin.seen(col, row);
   }
 
   private step(events: SnakeEvent[]): void {
@@ -182,15 +235,30 @@ export class SnakeGame {
       if (site < 0) return;
       const mask = new Array<boolean>(apple.psi.lattice.size).fill(false);
       mask[site] = true;
+      const chance = apple.psi.probability(site);
+      const spread = apple.psi.stats().spread;
+      const twin = this.twins[index]!;
+      const from = { col: twin.x, row: twin.y };
       const out = apple.psi.measure(mask, this.rng);
       if (out.kind === 'found') {
         grew = true;
-        this.score++;
+        const points = spreadMultiplier(spread);
+        this.score += points;
         this.tick = Math.max(SNAKE.minTick, this.tick * SNAKE.speedUp);
-        events.push({ type: 'ate', col: next.col, row: next.row });
+        if (chance <= SHOCK.rareChance)
+          events.push({ type: 'paradox', paradox: { kind: 'rare', value: chance }, ...next, from });
+        else this.foundAt(index, site, events);
+        events.push({ type: 'ate', col: next.col, row: next.row, points });
         this.spawnApple(index);
       } else if (out.kind === 'absent') {
         events.push({ type: 'missed', col: next.col, row: next.row });
+        if (chance >= SHOCK.negativeChance)
+          events.push({
+            type: 'paradox',
+            paradox: { kind: 'negative', value: chance },
+            ...next,
+            from,
+          });
       }
     });
     if (!grew) this.body.pop();

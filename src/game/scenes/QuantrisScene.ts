@@ -11,7 +11,9 @@ import { autoRepeat } from '../input/repeat';
 import { openMainMenu, setHash } from '../menu';
 import { fitCamera } from '../render/tiles';
 import { ui } from '../ui';
-import { bestScore, saveBest } from '../ui/progress';
+import { bestScore } from '../ui/progress';
+import { announce, finishArcade } from '../ui/shock';
+import { ParadoxLog, SHOCK } from '../../arcade/paradox';
 
 const EFFECTS: EffectId[] = ['superposition', 'collapse', 'born-rule'];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
@@ -50,6 +52,7 @@ export class QuantrisScene extends Phaser.Scene {
   private nextLabel!: Phaser.GameObjects.Text;
   /** Stoppers of the keys held down right now (auto-repeat). */
   private held = new Map<string, () => void>();
+  private log = new ParadoxLog();
 
   constructor() {
     super('Quantris');
@@ -57,6 +60,7 @@ export class QuantrisScene extends Phaser.Scene {
 
   create(): void {
     this.q = new QuantrisGame(mulberry32((Math.random() * 2 ** 32) >>> 0));
+    this.log = new ParadoxLog();
     this.running = false;
     this.gfx = this.add.graphics();
     this.labels = [0, 1].map(() =>
@@ -258,6 +262,7 @@ export class QuantrisScene extends Phaser.Scene {
       if (e.type === 'collapsed') {
         play('collapse');
         buzz(25);
+        if (e.chance <= SHOCK.rareChance) announce(this.log, { kind: 'rare', value: e.chance });
       } else if (e.type === 'merged') play('snap');
       else if (e.type === 'locked') {
         play('hit');
@@ -273,7 +278,13 @@ export class QuantrisScene extends Phaser.Scene {
   private updateHud(): void {
     const q = this.q;
     ui().setTimer(
-      T().arcade.quantris.hud(q.score, q.lines, q.looks, Math.max(bestScore('quantris'), q.score)),
+      T().arcade.quantris.hud(
+        q.score,
+        q.lines,
+        q.looks,
+        Math.max(bestScore('quantris'), q.score),
+        this.log.total,
+      ),
     );
   }
 
@@ -289,12 +300,12 @@ export class QuantrisScene extends Phaser.Scene {
     this.running = false;
     play('lose');
     const score = this.q.score;
-    const record = saveBest('quantris', score);
     this.time.delayedCall(600, () =>
-      ui().showArcadeOver(
+      finishArcade(
+        'quantris',
         score,
-        bestScore('quantris'),
-        record,
+        'quantum',
+        this.log,
         () => this.scene.restart(),
         () => this.openMenu(),
       ),

@@ -15,7 +15,8 @@ import { openMainMenu, setHash } from '../menu';
 import { fitCamera } from '../render/tiles';
 import { GazeCone } from '../systems/GazeCone';
 import { ui } from '../ui';
-import { bestScore, saveBest } from '../ui/progress';
+import { bestScore } from '../ui/progress';
+import { finishArcade } from '../ui/shock';
 
 const EFFECTS: EffectId[] = ['superposition', 'collapse', 'zeno', 'negative-result', 'tunnelling'];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
@@ -297,12 +298,12 @@ export class TanksScene extends Phaser.Scene {
     this.running = false;
     play('lose');
     const score = this.tanks.score;
-    const record = saveBest('tanks', score);
     this.time.delayedCall(800, () =>
-      ui().showArcadeOver(
+      finishArcade(
+        'tanks',
         score,
-        bestScore('tanks'),
-        record,
+        'quantum',
+        null,
         () => this.scene.restart(),
         () => this.openMenu(),
       ),

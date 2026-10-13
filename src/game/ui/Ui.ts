@@ -10,7 +10,8 @@ import { autoRepeat } from '../input/repeat';
 import { h, type Child } from './dom';
 import { chshPanel, type ChshState } from './ChshPanel';
 import type { InspectInfo } from './inspect';
-import { bestScore, completedLevels } from './progress';
+import { bestScore, completedLevels, type ScoreEntry } from './progress';
+import type { ParadoxKind } from '../../arcade/paradox';
 import './ui.css';
 
 /**
@@ -24,6 +25,15 @@ export interface PadButton {
   aria: string;
   press: () => void;
   repeat?: boolean;
+}
+
+/** How an arcade game ended: the score table and the paradoxes seen (S3). */
+export interface ArcadeResult {
+  score: number;
+  table: readonly ScoreEntry[];
+  /** Place of this game in the table, -1 if it did not make it. */
+  place: number;
+  paradoxes: readonly { kind: ParadoxKind; effect: EffectId; count: number }[];
 }
 
 /** What the HUD shows: a level, or an arcade game dressed as one. */
@@ -609,26 +619,59 @@ export class Ui {
     );
   }
 
-  showArcadeOver(
-    score: number,
-    best: number,
-    record: boolean,
-    onAgain: () => void,
-    onMenu: () => void,
-  ): void {
+  showArcadeOver(result: ArcadeResult, onAgain: () => void, onMenu: () => void): void {
     const a = T().arcade;
+    const show = () => this.showArcadeOver(result, onAgain, onMenu);
+    const marks = { quantum: '⚛', classical: '⚪' } as const;
+    const effects = [...new Set(result.paradoxes.map((p) => p.effect))];
     this.open(
       [
         h('h1', {}, a.over),
-        h('p', { class: 'big' }, a.score(score)),
-        h('p', {}, record ? a.record : a.bestLine(best)),
+        h('p', { class: 'big' }, a.score(result.score)),
+        result.place === 0 && h('p', {}, a.record),
+        result.table.length > 0 && h('h2', {}, a.tableTitle),
+        h(
+          'ol',
+          { class: 'score-table' },
+          ...result.table.map((e, i) =>
+            h('li', { class: i === result.place ? 'mine' : '' }, `${marks[e.mode]} ${e.score}`),
+          ),
+        ),
+        h('h2', {}, a.paradoxTitle),
+        result.paradoxes.length
+          ? h(
+              'ul',
+              { class: 'rules' },
+              ...result.paradoxes.map((p) =>
+                h('li', {}, `${a.paradoxNames[p.kind]} ×\u00a0${p.count}`),
+              ),
+            )
+          : h('p', { class: 'muted' }, a.noParadox),
+        effects.length > 0 &&
+          h(
+            'p',
+            {},
+            h(
+              'button',
+              { class: 'btn', onclick: () => this.showLearnMore(effects, show) },
+              T().learnMore,
+            ),
+          ),
       ],
       [
         { label: a.again, primary: true, run: onAgain },
         { label: T().menu, cancel: true, run: onMenu },
       ],
-      () => this.showArcadeOver(score, best, record, onAgain, onMenu),
+      show,
     );
+  }
+
+  /** A short caption of a paradox the moment it happens (S2). */
+  toast(text: string): void {
+    const el = h('div', { class: 'toast', role: 'status' }, text);
+    el.style.top = `${this.hudBottom() + 10}px`;
+    this.root.append(el);
+    window.setTimeout(() => el.remove(), 1900);
   }
 
   /**

@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { levelById, nextLevel } from '../../levels';
 import { SANDBOX } from '../../levels/sandbox';
+import { ClassicalTwin, ParadoxLog } from '../../arcade/paradox';
+import { announce } from '../ui/shock';
 import type { LevelDef } from '../../levels/types';
 import { mulberry32 } from '../../quantum/rng';
 import { T } from '../../strings/ui';
@@ -48,6 +50,9 @@ const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 export class LevelScene extends Phaser.Scene {
   private level!: LevelDef;
   private sim!: LevelSim;
+  /** Sandbox only: where each quantum object would be classically, and the paradoxes seen (S1, S2). */
+  private twins: ClassicalTwin[] = [];
+  private paradoxes = new ParadoxLog();
   private player!: Player;
   private gaze!: GazeCone;
   private quantum: QuantumObject[] = [];
@@ -115,6 +120,11 @@ export class LevelScene extends Phaser.Scene {
     this.cameraCones = this.sim.cameras.map(() => new GazeCone(this, this.worldLayer));
     this.inspecting = false;
     this.quantum = this.sim.bodies.map((b) => new QuantumObject(this, this.worldLayer, b));
+    this.paradoxes = new ParadoxLog();
+    this.twins =
+      this.level === SANDBOX
+        ? this.sim.bodies.map((b) => new ClassicalTwin(b.def.col, b.def.row))
+        : [];
     const [q0, q1] = this.sim.qubits.map((q) => ({
       x: (q.col + 0.5) * CELL,
       y: (q.row + 0.5) * CELL,
@@ -245,10 +255,15 @@ export class LevelScene extends Phaser.Scene {
 
   private onSimEvent(e: SimEvent, wasEntangled: boolean): void {
     switch (e.type) {
-      case 'collapsed':
+      case 'collapsed': {
         this.quantum[e.body]?.flash(e.site);
         play('collapse');
+        const twin = this.twins[e.body];
+        const { lattice } = this.sim.bodies[e.body]!.psi;
+        const far = twin?.farFrom(lattice.col[e.site]!, lattice.row[e.site]!);
+        if (far) announce(this.paradoxes, far);
         break;
+      }
       case 'qubit-changed':
         this.qubits.find((q) => (q.def.side ?? 0) === e.side)?.flash();
         play(wasEntangled && !this.sim.pair?.entangled ? 'snap' : 'flash');
@@ -415,7 +430,15 @@ export class LevelScene extends Phaser.Scene {
       this.sim.glasses === 'X' ? COLORS.gazeX : COLORS.gaze,
     );
     this.player.render(this.sim.player, this.sim.cone !== null);
-    for (const q of this.quantum) q.render(time);
+    this.quantum.forEach((q, i) => {
+      const twin = this.twins[i];
+      if (twin) {
+        const { psi } = q.body;
+        const site = psi.definiteSite();
+        if (site >= 0) twin.seen(psi.lattice.col[site]!, psi.lattice.row[site]!);
+      }
+      q.render(time, twin);
+    });
     for (const l of this.lampViews) l.render(this.sim.glasses, time);
     for (const f of this.flowerViews) f.render();
     for (const c of this.coreViews) c.render();

@@ -6,7 +6,23 @@
 const KEY = 'quantum-game:sound';
 
 export type SoundName =
-  'collapse' | 'flash' | 'click' | 'tick' | 'hit' | 'lamp' | 'boom' | 'snap' | 'win' | 'lose';
+  | 'collapse'
+  | 'flash'
+  | 'click'
+  | 'tick'
+  | 'hit'
+  | 'lamp'
+  | 'boom'
+  | 'snap'
+  | 'win'
+  | 'lose'
+  // Paradox stingers (PLAN-IMPROVEMENTS.md S10).
+  | 'wow'
+  | 'chime'
+  | 'pop'
+  | 'freeze'
+  | 'whoosh'
+  | 'hum';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -149,6 +165,32 @@ export function play(name: SoundName): void {
       break;
     case 'lose':
       tone(392, 0.45, { to: 196, type: 'sawtooth', gain: 0.15 });
+      break;
+    case 'wow':
+      // A rising "whee": something turned up far from where it should be.
+      tone(330, 0.35, { to: 990, type: 'triangle', gain: 0.3 });
+      tone(495, 0.3, { to: 1480, type: 'sine', gain: 0.15, delay: 0.06 });
+      break;
+    case 'chime':
+      [1568, 2093, 2637].forEach((f, i) =>
+        tone(f, 0.5, { type: 'sine', gain: 0.18, delay: i * 0.06 }),
+      );
+      break;
+    case 'pop':
+      tone(220, 0.08, { to: 880, type: 'sine', gain: 0.4 });
+      noise(0.05, { from: 3000, to: 800, gain: 0.2 });
+      break;
+    case 'freeze':
+      [2400, 2000, 1600].forEach((f, i) =>
+        tone(f, 0.18, { type: 'triangle', gain: 0.12, delay: i * 0.07 }),
+      );
+      break;
+    case 'whoosh':
+      noise(0.45, { from: 300, to: 4000, gain: 0.5 });
+      break;
+    case 'hum':
+      tone(110, 0.6, { type: 'sawtooth', gain: 0.08 });
+      tone(112, 0.6, { type: 'sawtooth', gain: 0.08 });
       break;
   }
 }

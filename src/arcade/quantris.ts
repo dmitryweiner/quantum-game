@@ -96,7 +96,8 @@ export interface Piece {
 }
 
 export type QuantrisEvent =
-  | { type: 'collapsed'; kept: number }
+  /** `chance`: the probability the kept place had (a rare one is worth naming). */
+  | { type: 'collapsed'; kept: number; chance: number }
   | { type: 'merged' }
   | { type: 'locked' }
   | { type: 'lines'; count: number }
@@ -262,8 +263,9 @@ export class QuantrisGame {
   private collapse(events: QuantrisEvent[], prefer?: number): number {
     const [a, b] = this.piece.branches as [Branch, Branch];
     const keep = prefer ?? (this.rng.next() < a.p ? 0 : 1);
-    this.piece.branches = [{ x: (keep === 0 ? a : b).x, p: 1 }];
-    events.push({ type: 'collapsed', kept: keep });
+    const kept = keep === 0 ? a : b;
+    this.piece.branches = [{ x: kept.x, p: 1 }];
+    events.push({ type: 'collapsed', kept: keep, chance: kept.p });
     return keep;
   }
 

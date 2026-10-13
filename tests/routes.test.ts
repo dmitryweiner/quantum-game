@@ -5,6 +5,7 @@ describe('links', () => {
   it('opens arcades by short names (and old spellings)', () => {
     expect(idFromHash('#snake')).toBe('arcade:snake');
     expect(idFromHash('#ships')).toBe('arcade:tanks');
+    expect(idFromHash('arcade:quantris')).toBe('arcade:quantris');
     expect(idFromHash('#Tanks')).toBe('arcade:tanks');
     expect(idFromHash('#quantris')).toBe('arcade:quantris');
   });

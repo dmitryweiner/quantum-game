@@ -27,6 +27,7 @@ export function idFromHash(hash: string): string | null {
   const h = decodeURIComponent(hash.replace(/^#/, '')).trim().toLowerCase();
   if (!h) return null;
   if (FROM_HASH[h]) return FROM_HASH[h];
+  if (ARCADE_SCENES[h]) return h;
   if (h === 'sandbox' || levelById(h)) return h;
   return null;
 }

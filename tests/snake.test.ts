@@ -64,7 +64,7 @@ describe('quantum snake', () => {
       // Step without letting the view measure first.
       (g as unknown as { acc: number }).acc = g.tick;
       (g as unknown as { step: (e: unknown[]) => void }).step([]);
-      if (g.score === 1) ate++;
+      if (g.score > 0) ate++;
       else missed++;
     }
     expect(ate / 200).toBeGreaterThan(0.35);
@@ -107,5 +107,49 @@ describe('quantum snake', () => {
       total += g.score;
     }
     expect(total / 20).toBeGreaterThan(3);
+  });
+
+  it('with eyes closed an apple in front of the head spreads', () => {
+    const g = new SnakeGame(OPEN, mulberry32(4));
+    placeApple(g, 3, 2);
+    g.setEyes(false);
+    for (let i = 0; i < 30; i++) g.update(0.02);
+    expect(g.cone).toBeNull();
+    expect(g.apples[0]!.psi.definiteSite()).toBe(-1);
+  });
+
+  it('an apple frozen by the look is worth 1, a spread one more (S8)', () => {
+    const g = new SnakeGame(OPEN, mulberry32(5));
+    placeApple(g, 3, 4);
+    const events = g.update(g.tick + 1e-6);
+    expect(events.find((e) => e.type === 'ate')).toMatchObject({ points: 1 });
+
+    // Blind, wait for the apple to spread; points of the apples caught by entering a cell.
+    let best = 0;
+    for (let s = 0; s < 200 && best < 2; s++) {
+      const h = new SnakeGame(OPEN, mulberry32(100 + s));
+      placeApple(h, 3, 3);
+      h.setEyes(false);
+      h.apples[0]!.psi.evolve(2.5);
+      for (const e of h.update(h.tick * 2)) if (e.type === 'ate') best = Math.max(best, e.points);
+    }
+    expect(best).toBeGreaterThanOrEqual(2);
+  });
+
+  it('opening the eyes on a spread apple often finds it far from where it was (S1)', () => {
+    let far = 0;
+    for (let s = 0; s < 100; s++) {
+      const g = new SnakeGame(SNAKE_ARENA, mulberry32(200 + s));
+      // Eyes closed for a while: the apple spreads; then a look finds it.
+      g.apples[0]!.psi.evolve(4);
+      for (let i = 0; i < 5; i++) {
+        for (const e of g.update(0.05))
+          if (e.type === 'paradox' && e.paradox.kind === 'far') {
+            far++;
+            expect(Math.hypot(e.col - e.from.col, e.row - e.from.row)).toBeGreaterThanOrEqual(2.5);
+          }
+      }
+    }
+    expect(far).toBeGreaterThan(0);
   });
 });
