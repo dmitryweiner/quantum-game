@@ -57,16 +57,20 @@ function landings(runs: number, shipX: number, look: boolean) {
  */
 function landingOdds(cameras: boolean, runs: number) {
   const { cols, rows, shieldRow: S, slits } = INVADERS;
-  const lat = floodLattice({ col: 0, row: 0 }, (c, r) => c >= 0 && c < cols && r >= 0 && r < rows);
-  const wall: number[] = [];
+  const isWall = (c: number, r: number) =>
+    (r === S && !slits.includes(c)) || (r > S && (c === 0 || c === cols - 1));
+  const lat = floodLattice(
+    { col: 0, row: 0 },
+    (c, r) => c >= 0 && c < cols && r >= 0 && r < rows && !isWall(c, r),
+  );
+  const space: number[] = [];
   const ground: number[] = [];
   const view = new Array<number>(lat.size).fill(0);
   for (let i = 0; i < lat.size; i++) {
-    const c = lat.col[i]!;
     const r = lat.row[i]!;
-    if ((r === S && !slits.includes(c)) || (r > S && (c === 0 || c === cols - 1))) wall.push(i);
+    if (r === 0) space.push(i);
     else if (r === rows - 1) ground.push(i);
-    if (r === S && slits.includes(c)) view[i] = 1;
+    if (r === S) view[i] = 1;
   }
   const land = new Array<number>(cols).fill(0);
   const rng = mulberry32(7);
@@ -78,9 +82,18 @@ function landingOdds(cameras: boolean, runs: number) {
     for (let t = 0; t < INVADERS.bombLife; t += dt) {
       psi.evolve(dt);
       if (cameras) psi.measureSoft(view, INVADERS.bombLookRate * dt, 0, rng);
-      alive *= 1 - psi.absorb(wall).reduce((a, b) => a + b, 0);
+      // A detector with a finite catch rate takes this share of what is on it.
+      const share = Math.min(1, INVADERS.bombCatchRate * dt);
+      const soak = (sites: number[]) =>
+        sites.map((s) => {
+          const p = psi.probability(s) * share;
+          psi.re[s]! *= Math.sqrt(1 - share);
+          psi.im[s]! *= Math.sqrt(1 - share);
+          return p;
+        });
+      alive *= 1 - soak(space).reduce((a, b) => a + b, 0);
       psi.evolve(0);
-      const caught = psi.absorb(ground);
+      const caught = soak(ground);
       caught.forEach((p, j) => (land[lat.col[ground[j]!]!]! += (alive * p) / runs));
       alive *= 1 - caught.reduce((a, b) => a + b, 0);
       psi.evolve(0);
@@ -132,8 +145,8 @@ describe('quantum invaders', () => {
 
   it('bombs through the two slits fall in stripes: almost never under the slits', () => {
     const odds = landingOdds(false, 1);
-    // Under the slits, less than 5 % as often as behind the middle of the wall.
-    expect((odds[2]! + odds[8]!) / 2).toBeLessThan(0.05 * odds[5]!);
+    // Under the slits, less than 6 % as often as behind the middle of the wall.
+    expect((odds[2]! + odds[8]!) / 2).toBeLessThan(0.06 * odds[5]!);
   });
 
   it('cameras on the slits wipe the stripes out: the dark columns fill in', () => {

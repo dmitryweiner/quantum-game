@@ -52,6 +52,13 @@ export const INVADERS = {
    * a wall: watched every instant, a bomb could not pass a slit at all (Zeno).
    */
   bombLookRate: 12,
+  /**
+   * How often the ground (and space above the formation) catches a bomb
+   * that is there, per second. About twice the hopping rate absorbs a wave
+   * cleanly; a detector that clicked every frame would reflect it instead
+   * (a Zeno mirror) and behave differently at 60 and 120 frames per second.
+   */
+  bombCatchRate: 6,
   /** Quantum torpedoes (as in the old starships). */
   torpedoes: 3,
   maxTorpedoes: 5,
@@ -182,19 +189,26 @@ export class InvadersGame {
   private cooldown = 0;
   private nextId = 0;
   /** The bomb lattice: the whole field (shared by all bombs and torpedoes). */
+  /** Where a bomb can be: everything but the shield and the walls (which reflect it). */
   private readonly field: Lattice;
-  private readonly shieldMask: number[];
+  /** Where a torpedo can be: everywhere (the shield stops only alien matter). */
+  private readonly open: Lattice;
+  /** The top row: a bomb bounced off the shield flies away into space there. */
+  private readonly spaceMask: number[];
   private readonly groundMask: number[];
 
   constructor(private readonly rng: Rng) {
-    this.field = floodLattice({ col: 0, row: 0 }, (c, r) => this.inField(c, r));
+    this.field = floodLattice(
+      { col: 0, row: 0 },
+      (c, r) => this.inField(c, r) && !this.isWall(c, r),
+    );
+    this.open = floodLattice({ col: 0, row: 0 }, (c, r) => this.inField(c, r));
     const n = this.field.size;
-    this.shieldMask = new Array<number>(n).fill(0);
+    this.spaceMask = new Array<number>(n).fill(0);
     this.groundMask = new Array<number>(n).fill(0);
     for (let i = 0; i < n; i++) {
-      const c = this.field.col[i]!;
       const r = this.field.row[i]!;
-      if (this.isWall(c, r)) this.shieldMask[i] = 1;
+      if (r === 0) this.spaceMask[i] = 1;
       else if (r === this.shipRow) this.groundMask[i] = 1;
     }
     this.newWave();
@@ -202,7 +216,7 @@ export class InvadersGame {
 
   inField = (c: number, r: number): boolean => c >= 0 && c < this.cols && r >= 0 && r < this.rows;
 
-  /** The shield (except its slits) and the side walls below it stop bombs. */
+  /** The shield (except its slits) and the side walls below it: bombs bounce off them. */
   isWall(c: number, r: number): boolean {
     const S = INVADERS.shieldRow;
     if (r === S) return !INVADERS.slits.includes(c);
@@ -566,8 +580,13 @@ export class InvadersGame {
     const keep: Bomb[] = [];
     for (const b of this.bombs) {
       b.age += dt;
-      if (this.classical) this.fallClassically(b, dt);
-      else b.psi.evolve(dt);
+      if (this.classical) {
+        const hit = this.fallClassically(b, dt);
+        if (hit) {
+          events.push({ type: 'fizzle', bomb: b.id, ...hit });
+          continue;
+        }
+      } else b.psi.evolve(dt);
       const { lattice } = b.psi;
       const view = new Array<number>(lattice.size).fill(0);
       for (let i = 0; i < lattice.size; i++) {
@@ -579,7 +598,8 @@ export class InvadersGame {
         view[i] = b.seen[i] ? 1 : 0;
       }
       b.psi.measureSoft(view, Math.min(1, INVADERS.bombLookRate * dt), 0, this.rng);
-      const wall = b.psi.measureSoft(this.shieldMask, 1, 0, this.rng);
+      const catchP = Math.min(1, INVADERS.bombCatchRate * dt);
+      const wall = b.psi.measureSoft(this.spaceMask, catchP, 0, this.rng);
       if (wall.kind === 'found') {
         events.push({
           type: 'fizzle',
@@ -589,7 +609,7 @@ export class InvadersGame {
         });
         continue;
       }
-      const ground = b.psi.measureSoft(this.groundMask, 1, 0, this.rng);
+      const ground = b.psi.measureSoft(this.groundMask, catchP, 0, this.rng);
       if (ground.kind === 'found') {
         const col = lattice.col[ground.site]!;
         const ship = col === this.shipCol;
@@ -617,18 +637,21 @@ export class InvadersGame {
     this.bombs = keep;
   }
 
-  /** Classical mode: a bomb is a point falling straight down, one row per 1/bombHop/… s. */
-  private fallClassically(b: Bomb, dt: number): void {
+  /** Classical mode: a bomb is a point falling straight down; returns the wall cell it hit, if any. */
+  private fallClassically(b: Bomb, dt: number): { col: number; row: number } | null {
     const site = b.psi.definiteSite();
-    if (site < 0) return;
+    if (site < 0) return null;
     const speed = 2 * INVADERS.bombHop * Math.sin(INVADERS.bombK);
     const rowsBefore = Math.floor((b.age - dt) * speed);
     const rowsNow = Math.floor(b.age * speed);
     if (rowsNow > rowsBefore) {
       const c = b.psi.lattice.col[site]!;
       const r = Math.min(this.rows - 1, b.psi.lattice.row[site]! + 1);
-      b.psi.collapseTo(this.field.siteAt(c, r));
+      const next = this.field.siteAt(c, r);
+      if (next < 0) return { col: c, row: r };
+      b.psi.collapseTo(next);
     }
+    return null;
   }
 
   /** Lasers fly straight up; every new cell asks each invader (and the UFO) "are you here?". */
@@ -734,7 +757,7 @@ export class InvadersGame {
   launchTorpedo(): InvaderEvent[] {
     if (this.over || this.torpedoAmmo <= 0) return [];
     const at = { x: this.shipCol, y: this.shipRow - 1 };
-    const psi = new Superposition(this.field, 0, INVADERS.torpedoHop);
+    const psi = new Superposition(this.open, 0, INVADERS.torpedoHop);
     psi.setWavePacket(at, INVADERS.torpedoWidth, { x: 0, y: -INVADERS.torpedoK });
     const id = this.nextId++;
     this.torpedoes.push({
@@ -742,7 +765,7 @@ export class InvadersGame {
       age: 0,
       def: { char: 'T', role: 'quantum', emoji: '⚛️', col: at.x, row: at.y },
       psi,
-      seen: new Array<boolean>(this.field.size).fill(false),
+      seen: new Array<boolean>(this.open.size).fill(false),
     });
     this.torpedoAmmo--;
     return [{ type: 'torpedo', torpedo: id }];
@@ -764,7 +787,7 @@ export class InvadersGame {
         let overlap = 0;
         const li = inv.psi.lattice;
         for (let j = 0; j < li.size; j++) {
-          const i = this.field.siteAt(li.col[j]!, li.row[j]!);
+          const i = this.open.siteAt(li.col[j]!, li.row[j]!);
           const w = t.psi.probability(i) * inv.psi.probability(j);
           if (w <= 0) continue;
           cells.push(j);
