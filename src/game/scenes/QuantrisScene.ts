@@ -27,6 +27,8 @@ const EFFECTS: EffectId[] = [
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 /** One colour per tetromino (I O T S Z J L). */
 const COLOURS = [0x5fd3ff, 0xffd166, 0xc77dff, 0x7bd88f, 0xff6b6b, 0x5a8dee, 0xffa552];
+/** Colour of entanglement (🔗): unlike any piece's colour. */
+const LINK = 0xff5fd2;
 /** A short buzz where the device can (Android; iOS ignores it). */
 const buzz = (ms: number) => navigator.vibrate?.(ms);
 /**
@@ -123,6 +125,7 @@ export class QuantrisScene extends Phaser.Scene {
       title: { en: t.title, ru: t.title },
       goal: { en: t.goal, ru: t.goal },
     });
+    overlay.setArcadeHelp({ title: t.title, rules: t.rules, controls: t.controlsDesktop });
     overlay.setGlasses(null);
     overlay.setFocus(null);
     overlay.setInspectMode(false);
@@ -149,7 +152,8 @@ export class QuantrisScene extends Phaser.Scene {
               press: () => this.act(() => this.q.softDrop()),
               repeat: true,
             },
-            up: { label: '⏬', aria: t.aria.drop, press: () => this.act(() => this.q.hardDrop()) },
+            // Like a classic handheld: ▲ and the big button turn; no drop button (flick to drop).
+            up: { label: '⟳', aria: t.aria.rotate, press: () => this.act(() => this.q.rotate(1)) },
             a: { label: '⟳', aria: t.aria.rotate, press: () => this.act(() => this.q.rotate(1)) },
             b: {
               label: '👁',
@@ -159,6 +163,7 @@ export class QuantrisScene extends Phaser.Scene {
             },
           }
         : null,
+      'console',
     );
     overlay.handlers = {
       menu: () => this.openMenu(),
@@ -410,14 +415,35 @@ export class QuantrisScene extends Phaser.Scene {
       // A definite piece over a thin overhang: where it may tunnel to, with the chance.
       const tunnel = quantum ? null : q.tunnelTarget(land);
       if (tunnel !== null) {
-        g.lineStyle(3, COLORS.barrier, 0.8);
+        // A pulsing violet ghost in the hole, joined to the landing shadow through the overhang.
+        const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 180);
         const tc = pieceCells(kind, b.rot, b.x, tunnel);
+        g.fillStyle(COLORS.barrier, 0.25 * pulse);
         for (const [cx, cy] of tc)
-          g.strokeRoundedRect(bx + cx * CELL + 6, by + cy * CELL + 6, CELL - 12, CELL - 12, 6);
+          g.fillRect(bx + cx * CELL + 4, by + cy * CELL + 4, CELL - 8, CELL - 8);
+        g.lineStyle(4, COLORS.barrier, pulse);
+        for (const [cx, cy] of tc)
+          g.strokeRoundedRect(bx + cx * CELL + 4, by + cy * CELL + 4, CELL - 8, CELL - 8, 6);
         const top = tc.reduce((a, c) => (c[1] < a[1] ? c : a));
+        const from = pieceCells(kind, b.rot, b.x, land).reduce((a, c) => (c[1] > a[1] ? c : a));
+        g.lineStyle(3, COLORS.barrier, 0.7 * pulse);
+        g.lineBetween(
+          bx + (from[0] + 0.5) * CELL,
+          by + (from[1] + 0.5) * CELL,
+          bx + (top[0] + 0.5) * CELL,
+          by + (top[1] + 0.5) * CELL,
+        );
         this.labels[1]!.setVisible(true)
-          .setText(`${Math.round(QUANTRIS.tunnelChance * 100)}%`)
+          .setText(`🌀 ${Math.round(QUANTRIS.tunnelChance * 100)}%`)
           .setPosition(bx + (top[0] + 0.5) * CELL, by + (top[1] + 0.5) * CELL);
+      }
+      // Entangled with the next piece: both glow in the thread's colour.
+      if (q.next.linked) {
+        const pulse = 0.6 + 0.4 * Math.sin(this.time.now / 220);
+        g.lineStyle(4, LINK, pulse);
+        for (const [cx, cy] of pieceCells(kind, b.rot, b.x, y))
+          if (cy >= 0)
+            g.strokeRoundedRect(bx + cx * CELL + 2, by + cy * CELL + 2, CELL - 4, CELL - 4, 9);
       }
       const cells = pieceCells(kind, b.rot, b.x, y);
       for (const [cx, cy] of cells)
@@ -435,8 +461,33 @@ export class QuantrisScene extends Phaser.Scene {
 
     // Next piece.
     const { panel } = this.at;
-    g.lineStyle(2, COLORS.floorLine, 1);
+    const linked = q.next.linked;
+    g.lineStyle(linked ? 4 : 2, linked ? LINK : COLORS.floorLine, 1);
     g.strokeRoundedRect(panel.x * CELL, panel.y * CELL, 5 * CELL, 4 * CELL, 12);
+    if (linked) {
+      // A dashed thread from the falling piece to the next one.
+      const cells = q.piece.branches.flatMap((b) => pieceCells(kind, b.rot, b.x, y));
+      const cx = cells.reduce((s, c) => s + c[0], 0) / cells.length + 0.5;
+      const cy = Math.min(...cells.map((c) => c[1]));
+      const ax = bx + cx * CELL;
+      const ay = by + cy * CELL;
+      const tx = (panel.x + 2.5) * CELL;
+      const ty = (panel.y + (this.at.board.y > panel.y ? 4 : 2)) * CELL;
+      const len = Math.hypot(tx - ax, ty - ay);
+      const off = (this.time.now * 0.04) % 24;
+      g.lineStyle(3, LINK, 0.8);
+      for (let d = off - 24; d < len; d += 24) {
+        const s0 = Math.max(0, d) / len;
+        const s1 = Math.min(len, d + 12) / len;
+        if (s1 > s0)
+          g.lineBetween(
+            ax + (tx - ax) * s0,
+            ay + (ty - ay) * s0,
+            ax + (tx - ax) * s1,
+            ay + (ty - ay) * s1,
+          );
+      }
+    }
     this.nextLabel.setPosition((panel.x + 2.5) * CELL, (panel.y - 0.35) * CELL);
     const n = q.next;
     const two = n.branches.length > 1;
@@ -484,7 +535,7 @@ export class QuantrisScene extends Phaser.Scene {
     fitCamera(this.cameras.main, this.scale, this.at.world, {
       top: px(ui().hudBottom() + 6),
       bottom: portrait ? px(pad + 6) : px(8),
-      side: portrait || pad === 0 ? px(6) : px(200),
+      side: Math.max(portrait || pad === 0 ? px(6) : px(200), px(ui().helpWidth())),
     });
   }
 }

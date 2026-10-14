@@ -65,6 +65,7 @@ export class Ui {
   private banner: HTMLElement | null = null;
   private buttonBar: HTMLElement | null = null;
   private actionButton: HTMLElement | null = null;
+  private helpPanel: HTMLElement | null = null;
   private onSwitch: (() => void) | null = null;
   /** Name of the open panel, so background updates only redraw their own panel. */
   private screenName = '';
@@ -684,7 +685,10 @@ export class Ui {
    * A game-pad for arcades (see PadKey for the layout). `repeat` buttons
    * fire again while held, with the standard delay and rate (REPEAT).
    */
-  setArcadePad(pad: Partial<Record<PadKey, PadButton>> | null): void {
+  setArcadePad(
+    pad: Partial<Record<PadKey, PadButton>> | null,
+    layout: 'thumbs' | 'console' = 'thumbs',
+  ): void {
     this.buttonBar?.remove();
     this.buttonBar = null;
     if (!pad) return;
@@ -711,21 +715,76 @@ export class Ui {
         el.addEventListener(ev, release);
       return el;
     };
-    const keys: PadKey[] = ['b', 'a', 'left', 'down', 'up', 'right'];
-    this.buttonBar = h('div', { class: 'arcade-pad' }, ...keys.map(make));
+    // A handheld console: a cross on the left, a big A and a small B on the right.
+    this.buttonBar =
+      layout === 'console'
+        ? h(
+            'div',
+            { class: 'arcade-pad console' },
+            h('div', { class: 'pad-cross' }, make('up'), make('left'), make('right'), make('down')),
+            h('div', { class: 'pad-ab' }, make('b'), make('a')),
+          )
+        : h(
+            'div',
+            { class: 'arcade-pad' },
+            ...(['b', 'a', 'left', 'down', 'up', 'right'] as PadKey[]).map(make),
+          );
     this.root.append(this.buttonBar);
   }
 
+  /**
+   * On a wide desktop screen: the arcade's rules and controls stay visible
+   * beside the game (players get lost otherwise). Null hides them.
+   */
+  setArcadeHelp(info: { title: string; rules: readonly string[]; controls: string } | null): void {
+    this.helpPanel?.remove();
+    this.helpPanel = null;
+    if (!info) return;
+    this.helpPanel = h(
+      'aside',
+      { class: 'arcade-help' },
+      h('h3', {}, info.title),
+      h('p', { class: 'controls' }, info.controls),
+      h('ul', {}, ...info.rules.map((r) => h('li', {}, r))),
+    );
+    this.root.append(this.helpPanel);
+  }
+
+  /** Width the help panel takes on the right, in CSS pixels (0 if hidden). */
+  helpWidth(): number {
+    if (!this.helpPanel) return 0;
+    const r = this.helpPanel.getBoundingClientRect();
+    return r.width > 0 ? r.width + 24 : 0;
+  }
+
   /** One round action button above the right thumb (e.g. a torpedo), or none. */
-  setActionButton(button: { label: string; aria: string; press: () => void } | null): void {
+  setActionButton(
+    button: {
+      label: string;
+      aria: string;
+      press: () => void;
+      /** For a button that is held. */
+      release?: () => void;
+      /** In the bottom right corner (default: above the right thumb stick). */
+      corner?: boolean;
+    } | null,
+  ): void {
     this.actionButton?.remove();
     this.actionButton = null;
     if (!button) return;
-    const el = h('button', { class: 'btn action-btn', 'aria-label': button.aria }, button.label);
+    const el = h(
+      'button',
+      { class: `btn action-btn${button.corner ? ' corner' : ''}`, 'aria-label': button.aria },
+      button.label,
+    );
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       button.press();
     });
+    const release = button.release;
+    if (release)
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
+        el.addEventListener(ev, release);
     this.actionButton = el;
     this.root.append(el);
   }

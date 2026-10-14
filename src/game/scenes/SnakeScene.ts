@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SNAKE_ARENA } from '../../arcade/arenas';
-import { DIR_ANGLE, SnakeGame, type Dir } from '../../arcade/snake';
+import { DIR_ANGLE, FRUITS, SnakeGame, type Dir, type Fruit } from '../../arcade/snake';
 import { mulberry32 } from '../../quantum/rng';
 import type { EffectId } from '../../strings/effects';
 import { T } from '../../strings/ui';
@@ -31,7 +31,6 @@ const EFFECTS: EffectId[] = [
 ];
 const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 /** A finger held still this long closes the snake's eyes (ms). */
-const HOLD_MS = 250;
 
 /** Quantum Snake (PLAN.md §9.1): renders SnakeGame and feeds it turns. */
 export class SnakeScene extends Phaser.Scene {
@@ -40,12 +39,14 @@ export class SnakeScene extends Phaser.Scene {
   private cone!: GazeCone;
   /** One ghost renderer per fruit, by id; rebuilt when a fruit is replaced. */
   private fruits = new Map<number, QuantumObject>();
+  private fruitKeys = new Map<number, string>();
   /** Thread between entangled 🍎🍏, nodes ✖, the 🔥 patch. */
   private fx!: Phaser.GameObjects.Graphics;
   private snakeGfx!: Phaser.GameObjects.Graphics;
   private running = false;
   private swipeFrom: { x: number; y: number } | null = null;
-  private holdTimer: Phaser.Time.TimerEvent | null = null;
+  /** Has the force field been explained in this game yet? */
+  private fieldShown = false;
   private log = new ParadoxLog();
   private mode!: ArcadeMode;
 
@@ -56,6 +57,7 @@ export class SnakeScene extends Phaser.Scene {
   create(): void {
     this.snake = new SnakeGame(SNAKE_ARENA, mulberry32((Math.random() * 2 ** 32) >>> 0));
     this.fruits = new Map();
+    this.fruitKeys = new Map();
     this.log = new ParadoxLog();
     this.mode = new ArcadeMode('snake', (on) => (this.snake.classical = on));
     this.running = false;
@@ -88,12 +90,25 @@ export class SnakeScene extends Phaser.Scene {
       title: { en: s.title, ru: s.title },
       goal: { en: s.goal, ru: s.goal },
     });
+    overlay.setArcadeHelp({ title: s.title, rules: s.rules, controls: s.controlsDesktop });
     overlay.setGlasses(null);
     overlay.setFocus(null);
     overlay.setInspectMode(false);
     overlay.setLevelTools(false);
     overlay.setArcadePad(null);
-    overlay.setActionButton(null);
+    // 🙈 is a button of its own: held, the snake's eyes are shut.
+    overlay.setActionButton(
+      isTouchDevice()
+        ? {
+            label: '🙈',
+            aria: s.eyesAria,
+            press: () => this.setEyes(false),
+            release: () => this.setEyes(true),
+            corner: true,
+          }
+        : null,
+    );
+    this.fieldShown = false;
     overlay.handlers = {
       menu: () => this.openMenu(),
       restart: () => this.scene.restart(),
@@ -155,27 +170,17 @@ export class SnakeScene extends Phaser.Scene {
       if (e.code === 'Space') this.setEyes(true);
     });
     // Swipes anywhere: each 22 px of drag in a direction is one turn.
-    // A finger held still closes the eyes until it is lifted.
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      this.swipeFrom = { x: p.x, y: p.y };
-      this.holdTimer?.remove();
-      this.holdTimer = this.time.delayedCall(HOLD_MS, () => this.setEyes(false));
-    });
-    this.input.on('pointerup', () => {
-      this.swipeFrom = null;
-      this.holdTimer?.remove();
-      this.holdTimer = null;
-      this.setEyes(true);
-    });
+    this.input.on(
+      'pointerdown',
+      (p: Phaser.Input.Pointer) => (this.swipeFrom = { x: p.x, y: p.y }),
+    );
+    this.input.on('pointerup', () => (this.swipeFrom = null));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       const from = this.swipeFrom;
       if (!from || !p.isDown || !this.running) return;
       const dx = p.x - from.x;
       const dy = p.y - from.y;
       if (Math.hypot(dx, dy) < px(22)) return;
-      // A swipe, not a hold.
-      this.holdTimer?.remove();
-      this.holdTimer = null;
       this.snake.turn(
         Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up',
       );
@@ -224,9 +229,15 @@ export class SnakeScene extends Phaser.Scene {
         } else if (e.type === 'missed') {
           this.missed(e.col, e.row);
           play('pop');
+        } else if (e.type === 'bump') {
+          this.ring(e.col, e.row, COLORS.bad);
+          this.cameras.main.shake(120, 0.006);
+          play('tick');
+          navigator.vibrate?.(30);
         } else if (e.type === 'died') this.gameOver();
       }
       this.syncFruits();
+      this.explainField();
     }
     this.render(time);
   }
@@ -247,15 +258,50 @@ export class SnakeScene extends Phaser.Scene {
     );
   }
 
+  /** One ghost renderer per fruit; rebuilt when a fruit changes (a pair settles its colours). */
   private syncFruits(): void {
-    const alive = new Set(this.snake.fruits.map((f) => f.id));
+    const key = (f: Fruit) => `${f.kind}|${f.partner !== null}`;
+    const alive = new Map(this.snake.fruits.map((f) => [f.id, key(f)]));
     for (const [id, v] of this.fruits)
-      if (!alive.has(id)) {
+      if (alive.get(id) !== this.fruitKeys.get(id)) {
         v.destroy();
         this.fruits.delete(id);
       }
-    for (const f of this.snake.fruits)
-      if (!this.fruits.has(f.id)) this.fruits.set(f.id, new QuantumObject(this, this.world, f));
+    for (const f of this.snake.fruits) {
+      if (this.fruits.has(f.id)) continue;
+      const partner = f.partner !== null ? this.snake.byId(f.partner) : undefined;
+      // An unmeasured pair: each could be either colour — show both, side by side.
+      this.fruits.set(
+        f.id,
+        new QuantumObject(
+          this,
+          this.world,
+          f,
+          false,
+          partner ? FRUITS[partner.kind].emoji : undefined,
+        ),
+      );
+      this.fruitKeys.set(f.id, key(f));
+    }
+  }
+
+  /** Explains the force field the first time the head comes next to it. */
+  private explainField(): void {
+    if (this.fieldShown) return;
+    const h = this.snake.head;
+    for (const [dc, dr] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [2, 0],
+      [-2, 0],
+    ] as const)
+      if (this.snake.map.tiles[h.row + dr]?.[h.col + dc] === 'barrier') {
+        this.fieldShown = true;
+        ui().toast(T().arcade.snake.field);
+        return;
+      }
   }
 
   /** The 🔗 thread between an unmeasured 🍎🍏 pair, and ✖ on the nodes of each cloud. */
@@ -264,7 +310,7 @@ export class SnakeScene extends Phaser.Scene {
     g.clear();
     for (const f of this.snake.fruits) {
       const t = f.partner !== null ? this.snake.byId(f.partner) : undefined;
-      if (t && f.kind === 'apple') {
+      if (t && f.id < t.id) {
         const a = f.psi.stats();
         const b = t.psi.stats();
         const ax = (a.x + 0.5) * CELL;
@@ -402,6 +448,14 @@ export class SnakeScene extends Phaser.Scene {
     for (const side of [-1, 1]) {
       const ex = cx + Math.cos(a + Math.PI / 2) * 11 * side;
       const ey = cy + Math.sin(a + Math.PI / 2) * 11 * side;
+      if (!this.snake.eyesOpen) {
+        // Shut: a line across each eye.
+        g.lineStyle(3, 0x0b0e1a, 1);
+        const px0 = Math.cos(a + Math.PI / 2) * 6;
+        const py0 = Math.sin(a + Math.PI / 2) * 6;
+        g.lineBetween(ex - px0, ey - py0, ex + px0, ey + py0);
+        continue;
+      }
       g.fillStyle(0xffffff, 1);
       g.fillCircle(ex, ey, 7);
       g.fillStyle(0x0b0e1a, 1);
@@ -413,8 +467,9 @@ export class SnakeScene extends Phaser.Scene {
     if (!this.snake) return;
     fitCamera(this.cameras.main, this.scale, this.snake.map, {
       top: px(ui().hudBottom() + 6),
-      bottom: px(12),
-      side: px(8),
+      // Room for the 🙈 button in the corner on a phone.
+      bottom: isTouchDevice() && this.scale.height > this.scale.width ? px(90) : px(12),
+      side: Math.max(px(8), px(ui().helpWidth())),
     });
   }
 }

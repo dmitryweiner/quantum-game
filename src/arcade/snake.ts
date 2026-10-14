@@ -80,6 +80,8 @@ export type SnakeEvent =
   | { type: 'ate'; fruit: number; col: number; row: number; points: number }
   /** Something classically impossible, at (col, row); `from`: the classical place. */
   | { type: 'paradox'; paradox: Paradox; col: number; row: number; from: Cell }
+  /** Stopped short of a wall (or itself): one more step that way and it crashes. */
+  | { type: 'bump'; col: number; row: number }
   | { type: 'died' };
 
 /**
@@ -105,6 +107,7 @@ export class SnakeGame {
   /** The head looks ahead unless the player closes its eyes (🙈). */
   eyesOpen = true;
   private nextId = 0;
+  private bumped = false;
   private readonly open: (c: number, r: number) => boolean;
   private readonly hot: Set<string>;
 
@@ -227,11 +230,11 @@ export class SnakeGame {
     };
   }
 
-  /** The leader of an entangled pair (the 🍎) and its twin, or the fruit alone. */
+  /** The leader of an entangled pair (the older one) and its twin, or the fruit alone. */
   private pairOf(f: Fruit): [Fruit, Fruit | null] {
     const t = f.partner !== null ? this.byId(f.partner) : undefined;
     if (!t) return [f, null];
-    return f.kind === 'apple' ? [f, t] : [t, f];
+    return f.id < t.id ? [f, t] : [t, f];
   }
 
   /**
@@ -290,6 +293,12 @@ export class SnakeGame {
     const m = this.mirror(c, r);
     const j = b.psi.lattice.siteAt(m.col, m.row);
     a.partner = b.partner = null;
+    // Which of the two is red was undecided too: the pair was 🍎🍏 or 🍏🍎 — now it is one of them.
+    if (this.rng.next() < 0.5) {
+      [a.kind, b.kind] = [b.kind, a.kind];
+      a.def = { ...a.def, emoji: FRUITS[a.kind].emoji };
+      b.def = { ...b.def, emoji: FRUITS[b.kind].emoji };
+    }
     if (j >= 0) {
       b.psi.collapseTo(j);
       b.classical.seen(m.col, m.row);
@@ -307,7 +316,20 @@ export class SnakeGame {
     return { fruit: a, site: out.site };
   }
 
+  /** Did the straight way from (c0, r0) to (c1, r1) cross a force field, along its rows? */
+  private acrossField(c0: number, r0: number, c1: number, r1: number): boolean {
+    if (r0 !== r1) return false;
+    for (let c = Math.min(c0, c1) + 1; c < Math.max(c0, c1); c++)
+      if (this.map.tiles[r0]?.[c] === 'barrier') return true;
+    return false;
+  }
+
   private nameFar(f: Fruit, col: number, row: number, events: SnakeEvent[]): void {
+    const from = { col: f.classical.x, row: f.classical.y };
+    if (this.acrossField(from.col, from.row, col, row)) {
+      events.push({ type: 'paradox', paradox: { kind: 'tunnel', value: 1 }, col, row, from });
+      return;
+    }
     const far = f.classical.farFrom(col, row);
     if (far)
       events.push({
@@ -394,10 +416,17 @@ export class SnakeGame {
       (b) => b.col === next.col && b.row === next.row && !(b === tail),
     );
     if (isSolid(this.map, next.col, next.row) || hitsSelf) {
+      // One step of grace: the snake stops short; still blocked next step, it crashes.
+      if (!this.bumped) {
+        this.bumped = true;
+        events.push({ type: 'bump', col: next.col, row: next.row });
+        return;
+      }
       this.alive = false;
       events.push({ type: 'died' });
       return;
     }
+    this.bumped = false;
     this.body.unshift(next);
     let grew = false;
     // The head entering a cell measures it.

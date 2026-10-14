@@ -74,6 +74,7 @@ export class PongScene extends Phaser.Scene {
       title: { en: t.title, ru: t.title },
       goal: { en: t.goal, ru: t.goal },
     });
+    overlay.setArcadeHelp({ title: t.title, rules: t.rules, controls: t.controlsDesktop });
     overlay.setGlasses(null);
     overlay.setFocus(null);
     overlay.setInspectMode(false);
@@ -207,9 +208,10 @@ export class PongScene extends Phaser.Scene {
       const steer =
         (k.right?.isDown || k.d?.isDown ? 1 : 0) - (k.left?.isDown || k.a?.isDown ? 1 : 0);
       if (steer) this.paddleTarget = this.g.paddles.player + steer * 3;
-      const mouse = this.input.mousePointer;
+      // Space: look just ahead of your paddle — the late look that catches the ball.
       let look = this.lookAt;
-      if (!look && k.look?.isDown && mouse) look = this.site(mouse);
+      if (!look && k.look?.isDown)
+        look = { x: this.g.paddles.player, y: PONG.playerRows[0]! - PONG.lookRadius + 2 };
       const player: PongInput = { paddle: this.paddleTarget, look };
       this.mode.update(dt);
       this.onEvents(
@@ -388,7 +390,11 @@ export class PongScene extends Phaser.Scene {
       this.cameras.main,
       this.scale,
       { cols: PONG.cols / 2, rows: PONG.rows / 2 },
-      { top: px(ui().hudBottom() + 6), bottom: px(10), side: px(6) },
+      {
+        top: px(ui().hudBottom() + 6),
+        bottom: px(10),
+        side: Math.max(px(6), px(ui().helpWidth())),
+      },
     );
   }
 }

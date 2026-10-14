@@ -81,8 +81,9 @@ export class InvadersScene extends Phaser.Scene {
   private ufo: Phaser.GameObjects.Image[] = [];
   private ufoLabels: Phaser.GameObjects.Text[] = [];
   private invaders!: Clouds;
-  private bombs!: Clouds;
-  private torpedoes!: Clouds;
+  /** Bombs and torpedoes are drawn as plain one-colour waves (cheap), with an icon at their middle. */
+  private waves!: Phaser.GameObjects.Graphics;
+  private icons = new Map<number, Phaser.GameObjects.Image>();
   private running = false;
   private log = new ParadoxLog();
   private mode!: ArcadeMode;
@@ -111,8 +112,9 @@ export class InvadersScene extends Phaser.Scene {
     this.landed = new Array<number>(INVADERS.cols).fill(0);
     this.world = this.add.layer();
     this.drawArena();
-    this.bombs = new Clouds(this, this.world, true);
-    this.torpedoes = new Clouds(this, this.world, true);
+    this.waves = this.add.graphics();
+    this.world.add(this.waves);
+    this.icons = new Map();
     this.invaders = new Clouds(this, this.world, false);
     this.fx = this.add.graphics();
     this.world.add(this.fx);
@@ -156,6 +158,7 @@ export class InvadersScene extends Phaser.Scene {
       title: { en: t.title, ru: t.title },
       goal: { en: t.goal, ru: t.goal },
     });
+    overlay.setArcadeHelp({ title: t.title, rules: t.rules, controls: t.controlsDesktop });
     overlay.setGlasses(null);
     overlay.setFocus(null);
     overlay.setInspectMode(false);
@@ -327,8 +330,7 @@ export class InvadersScene extends Phaser.Scene {
       for (let c = 0; c < this.landed.length; c++) this.landed[c]! *= Math.exp(-dt / 20);
     }
     this.invaders.sync(this.g.invaders);
-    this.bombs.sync(this.g.bombs);
-    this.torpedoes.sync(this.g.torpedoes);
+
     this.render(time);
   }
 
@@ -519,8 +521,7 @@ export class InvadersScene extends Phaser.Scene {
       const s = g.slotCell(inv.slot);
       return { x: s.col, y: s.row };
     });
-    this.bombs.render(time);
-    this.torpedoes.render(time);
+    this.drawWaves(time);
 
     // Lasers.
     fx.lineStyle(6, 0xff5fd2, 1);
@@ -549,6 +550,55 @@ export class InvadersScene extends Phaser.Scene {
     });
 
     this.ship.setPosition(g.shipX * CELL, (shipRow + 0.5) * CELL);
+  }
+
+  /**
+   * Bombs (orange) and torpedoes (blue): a tile per cell, brighter where
+   * likelier — one colour, so the stripes read clearly — and the bomb or atom
+   * itself at the cloud's middle.
+   */
+  private drawWaves(time: number): void {
+    const g = this.waves;
+    g.clear();
+    const alive = new Set<number>();
+    const draw = (
+      b: { id: number; psi: InvadersGame['bombs'][number]['psi'] },
+      colour: number,
+      emoji: string,
+    ) => {
+      alive.add(b.id);
+      const { psi } = b;
+      const { lattice } = psi;
+      let max = 0;
+      for (let i = 0; i < lattice.size; i++) max = Math.max(max, psi.probability(i));
+      for (let i = 0; i < lattice.size; i++) {
+        const rel = psi.probability(i) / max;
+        if (rel < 0.15) continue;
+        g.fillStyle(colour, 0.05 + 0.45 * rel * rel);
+        g.fillRect(lattice.col[i]! * CELL + 3, lattice.row[i]! * CELL + 3, CELL - 6, CELL - 6);
+      }
+      const { x, y, spread } = psi.stats();
+      let icon = this.icons.get(b.id);
+      if (!icon) {
+        icon = this.add
+          .image(0, 0, emojiTexture(this, emoji))
+          .setDisplaySize(CELL * 0.7, CELL * 0.7);
+        this.world.add(icon);
+        this.icons.set(b.id, icon);
+      }
+      // Sharp when the object is nearly certain, faint when it is spread out.
+      icon
+        .setPosition((x + 0.5) * CELL, (y + 0.5) * CELL)
+        .setAlpha(Math.max(0.35, 1 - spread / 4))
+        .setAngle(emoji === '⚛️' ? (time / 4) % 360 : 0);
+    };
+    for (const b of this.g.bombs) draw(b, 0xffa552, '💣');
+    for (const t of this.g.torpedoes) draw(t, 0x7fd4ff, '⚛️');
+    for (const [id, icon] of this.icons)
+      if (!alive.has(id)) {
+        icon.destroy();
+        this.icons.delete(id);
+      }
   }
 
   /**
@@ -585,7 +635,7 @@ export class InvadersScene extends Phaser.Scene {
       {
         top: px(ui().hudBottom() + 6),
         bottom: portrait ? px(pad + 6) : px(8),
-        side: portrait || pad === 0 ? px(6) : px(170),
+        side: Math.max(portrait || pad === 0 ? px(6) : px(170), px(ui().helpWidth())),
       },
     );
   }

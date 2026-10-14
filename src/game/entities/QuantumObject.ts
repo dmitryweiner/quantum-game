@@ -20,6 +20,8 @@ const MIN_REL = 0.12;
  */
 export class QuantumObject {
   private readonly ghosts: Phaser.GameObjects.Image[];
+  /** A second emoji beside each ghost: the object is one of two things, undecided. */
+  private readonly alts: Phaser.GameObjects.Image[] = [];
   private readonly heat: Phaser.GameObjects.Graphics;
   private readonly twin: Phaser.GameObjects.Image;
   private readonly twinRing: Phaser.GameObjects.Graphics;
@@ -34,6 +36,8 @@ export class QuantumObject {
      * their amplitude (hue = arg ψ), no emoji ghosts — stripes become visible.
      */
     private readonly phase = false,
+    /** Also draw this emoji, slightly shifted, at every ghost (e.g. 🍏 beside 🍎). */
+    alt?: string,
   ) {
     const { lattice } = body.psi;
     this.heat = scene.add.graphics();
@@ -56,6 +60,14 @@ export class QuantumObject {
       layer.add(img);
       return img;
     });
+    if (alt) {
+      const altKey = emojiTexture(scene, alt);
+      this.alts = this.ghosts.map((g) => {
+        const img = scene.add.image(g.x, g.y, altKey).setVisible(false);
+        layer.add(img);
+        return img;
+      });
+    }
   }
 
   /**
@@ -127,11 +139,26 @@ export class QuantumObject {
       this.heat.fillStyle(COLORS.ghostHeat, 0.28 * rel);
       this.heat.fillRect(x - CELL / 2 + 2, y - CELL / 2 + 2, CELL - 4, CELL - 4);
     }
+    // Both possibilities side by side, slightly shifted.
+    const d = CELL * 0.14;
+    this.alts.forEach((a, i) => {
+      const g = this.ghosts[i]!;
+      a.setVisible(g.visible);
+      if (!g.visible) return;
+      a.setPosition(g.x + d, g.y + d * 0.6)
+        .setAlpha(g.alpha)
+        .setDisplaySize(g.displayWidth * 0.85, g.displayHeight * 0.85);
+      g.setPosition(g.x - d, g.y - d * 0.6).setDisplaySize(
+        g.displayWidth * 0.85,
+        g.displayHeight * 0.85,
+      );
+    });
   }
 
   /** Removes its sprites (when the object is replaced, e.g. an eaten apple). */
   destroy(): void {
     for (const g of this.ghosts) g.destroy();
+    for (const a of this.alts) a.destroy();
     this.heat.destroy();
     this.twin.destroy();
     this.twinRing.destroy();

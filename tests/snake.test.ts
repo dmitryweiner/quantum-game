@@ -275,4 +275,23 @@ describe('quantum snake', () => {
     }
     expect(found).toBeGreaterThan(0);
   });
+
+  it('stops short at a wall once; a turn then saves it, going on crashes it', () => {
+    const OPENW = ['#######', '#.....#', '#.....#', '#.....#', '#.....#', '#..@..#', '#######'];
+    const g = new SnakeGame(OPENW, mulberry32(12));
+    g.fruits = [];
+    let bumped = false;
+    for (let i = 0; i < 8 && !bumped; i++)
+      for (const e of g.update(g.tick + 1e-6)) if (e.type === 'bump') bumped = true;
+    expect(bumped).toBe(true);
+    expect(g.alive).toBe(true);
+    g.turn('left');
+    g.update(g.tick + 1e-6);
+    expect(g.alive).toBe(true);
+
+    const h = new SnakeGame(OPENW, mulberry32(13));
+    h.fruits = [];
+    for (let i = 0; i < 8 && h.alive; i++) h.update(h.tick + 1e-6);
+    expect(h.alive).toBe(false);
+  });
 });
